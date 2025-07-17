@@ -1,0 +1,160 @@
+inf cerebellum 155
+inf cerebellum 150
+inf cerebellum 151
+inf cerebellum 140
+inf cerebellum 131
+inf cerebellum 122
+inf cerebellum 121
+inf cerebellum 110
+lat cerebellum 128
+lat cerebellum 113
+lat cerebellum 109
+lat cerebellum 98
+med cerebellum 143
+med cerebellum 144
+med cerebellum 138
+med cerebellum 130
+med cerebellum 127
+med cerebellum 120
+ACC 19
+TPJ 125
+aPFC 8
+angular gyrus 102
+ant insula 28
+ant insula 26
+basal ganglia 71
+basal ganglia 38
+basal ganglia 39
+basal ganglia 30
+dACC 27
+fusiform 81
+mFC 31
+mid insula 61
+mid insula 59
+mid insula 44
+parietal 97
+parietal 89
+post cingulate 80
+post insula 76
+precuneus 87
+sup temporal 100
+temporal 103
+temporal 95
+temporal 78
+thalamus 57
+thalamus 58
+thalamus 47
+vFC 40
+vFC 33
+vFC 25
+vPFC 18
+ACC 14
+IPS 134
+aPFC 5
+angular gyrus 124
+angular gyrus 117
+fusiform 84
+inf temporal 91
+inf temporal 72
+inf temporal 63
+mPFC 4
+occipital 146
+occipital 141
+occipital 136
+occipital 137
+occipital 92
+post cingulate 115
+post cingulate 111
+post cingulate 108
+post cingulate 93
+post cingulate 90
+post cingulate 73
+precuneus 132
+precuneus 112
+precuneus 105
+precuneus 94
+precuneus 85
+sup frontal 20
+sup frontal 17
+vlPFC 15
+vmPFC 13
+vmPFC 11
+vmPFC 7
+vmPFC 6
+vmPFC 1
+ACC 21
+IPL 107
+IPL 104
+IPL 101
+IPL 96
+IPL 88
+IPS 116
+IPS 114
+aPFC 2
+aPFC 3
+dFC 36
+dFC 34
+dFC 29
+dlPFC 24
+dlPFC 22
+dlPFC 16
+post parietal 99
+vPFC 23
+vent aPFC 10
+vent aPFC 9
+vlPFC 12
+occipital 149
+occipital 148
+occipital 145
+occipital 147
+occipital 142
+occipital 139
+occipital 135
+occipital 133
+occipital 129
+occipital 126
+occipital 118
+occipital 119
+occipital 106
+post occipital 160
+post occipital 158
+post occipital 159
+post occipital 157
+post occipital 156
+post occipital 153
+post occipital 154
+post occipital 152
+temporal 123
+SMA 43
+dFC 35
+frontal 45
+frontal 32
+mid insula 55
+mid insula 56
+mid insula 48
+parietal 77
+parietal 74
+parietal 75
+parietal 69
+parietal 66
+parietal 65
+parietal 64
+parietal 62
+parietal 54
+parietal 50
+post insula 70
+post parietal 79
+pre-SMA 41
+precentral gyrus 67
+precentral gyrus 53
+precentral gyrus 52
+precentral gyrus 51
+precentral gyrus 49
+precentral gyrus 46
+sup parietal 86
+temporal 82
+temporal 83
+temporal 68
+temporal 60
+vFC 42
+vFC 37
