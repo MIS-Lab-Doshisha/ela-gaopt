@@ -43,6 +43,9 @@ def func_ELA(individual, task_data_train, behavioral_df=None, use_gpu=False):
     # 選択ROIのみ抽出 / Extract only selected ROIs
     selection_mask = np.array(individual, dtype=bool)
     filter_list = [data[selection_mask].astype('int32') for data in task_data_train]
+    task_data = np.concatenate(filter_list, axis=1)
+    task_data = pd.DataFrame(task_data)
+    task_data.columns = range(task_data.shape[1])
     if use_gpu:
         import torch
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -57,11 +60,6 @@ def func_ELA(individual, task_data_train, behavioral_df=None, use_gpu=False):
         task_data = pd.DataFrame(np.concatenate(filter_list, axis=1))
         acc1, acc2 = calc_accuracy(h, W, task_data)
     else:
-        task_data = np.concatenate(filter_list, axis=1)
-        task_data = pd.DataFrame(task_data)
-        task_data.columns = range(task_data.shape[1])
-        #print(f"task data shape: {task_data.shape}")
-
         # Isingモデルパラメータ推定 / Fit Ising model parameters
         h, W = fit_approx_new(task_data)
         _, num = calc_basin_graph(h, W, task_data)
