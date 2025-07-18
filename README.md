@@ -1,24 +1,29 @@
-# ela-gaopt
-ELA/GAopt: Energy Landscape Analysis with Automated Region-of-Interest Selection via Genetic Algorithms
+# ELA/GAopt
 
 This repository contains the code for our paper: **Energy Landscape Analysis with Automated Region-of-Interest Selection via Genetic Algorithms** 
 
-**ELA/GAopt** is a framework for data-driven ROI (Region Of Interest) optimization in Energy LAndscape Analysis(ELA).
+**ELA/GAopt** is a framework for data-driven ROI (Region of interest) optimization in Energy Landscape Analysis(ELA).
 
-A genetic algorithm-based optimisation framework for data-driven ROI (region of interest) selection in ELA.This repository contains code for selecting ROIs from brain activity (fMRI) data and analysing their properties.
+A genetic algorithm-based optimization framework for data-driven ROI selection in ELA.This repository contains code for selecting ROIs from brain activity (fMRI) data and analysing their properties.
+
+The original Matlab codes written by Dr. T. Ezaki are available at:[ https://github.com/tkEzaki/energy-landscape-analysis.](https://github.com/tkEzaki/energy-landscape-analysis.)
+
+The original Python implementation of the Energy Landscape Analysis Toolbox/Toolkit (ELAT) written by Dr. M. Oku available at [https://github.com/okumakito/elapy](https://github.com/okumakito/elapy)
+
+This tool includes a set of functions derived from the Energy Landscape Analysis Toolbox/Toolkit (ELAT).
 
 This code has been tested with Python **3.13.2.**
 
 ## Table of Contents
 
-- [ela-gaopt](#ela-gaopt)
+- [ELA/GAopt](#elagaopt)
   - [Table of Contents](#table-of-contents)
   - [1.  Install Dependencies](#1--install-dependencies)
   - [2. Prepare the Dataset for ELA/GAopt](#2-prepare-the-dataset-for-elagaopt)
     - [2.1 Brain activity data](#21-brain-activity-data)
     - [2.2 Brain atlas labels](#22-brain-atlas-labels)
     - [2.3. Output directory structure](#23-output-directory-structure)
-  - [3. How to use](#3-how-to-use)
+  - [3. How to use ?](#3-how-to-use-)
     - [3.1 Preprocessing of brain activity data.](#31-preprocessing-of-brain-activity-data)
       - [Input data settings:](#input-data-settings)
         - [Output:](#output)
@@ -76,7 +81,7 @@ Data/
 The script stores the analysis results under the `ELAGAopt_result/` directory. 
 
 
-## 3. How to use
+## 3. How to use ?
 
 Each script corresponds to a specific analysis step. It is recommended that they be run in the following order
 Set variables, paths, etc. in the scripts to suit your environment.
