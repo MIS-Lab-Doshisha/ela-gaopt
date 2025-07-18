@@ -20,27 +20,21 @@ sns.set_context('talk', font_scale=0.8)
 
 def func_ELA(individual, task_data_train, behavioral_df=None, use_gpu=False):
     """
-    GA用評価関数 / Evaluation function for GA
+    Evaluation function for GA
 
     Parameters
     ----------
-    individual : np.ndarray
-        選択ROIリスト / List of selected ROIs (e.g., (1,0,0,...,0,1), length=160)
-    task_data_train : list
-        2値化脳活動データ / List of binarized brain activity data (subjects × (ROIs × time points))
-    behavioral_df : pd.DataFrame, optional
-        行動データ（未使用）/ Behavioral data (not used here)
+    individual :  List of selected ROIs (e.g., (1,0,0,...,0,1), length=160)
+    task_data_train :  List of binarized brain activity data (subjects × (ROIs × time points))
+    behavioral_df :  Behavioral data 
 
     Returns
     -------
-    var : float
-        個体パラメータβの分散 / Variance of individual parameters
-    acc : float
-        Isingモデルへの適合度 / Fitting accuracy to the Ising model
-    num : int
-        局所安定状態数など / Number of local minima, etc.
+    var : Variance of individual parameters
+    acc : Fitting accuracy to the Ising model
+    num : Number of local minima.
     """
-    # 選択ROIのみ抽出 / Extract only selected ROIs
+
     selection_mask = np.array(individual, dtype=bool)
     filter_list = [data[selection_mask].astype('int32') for data in task_data_train]
     task_data = np.concatenate(filter_list, axis=1)
@@ -54,24 +48,17 @@ def func_ELA(individual, task_data_train, behavioral_df=None, use_gpu=False):
             [t.unsqueeze(1) if t.ndim == 1 else t for t in tensor_list],
             dim=1
         )
-        # GPU版Isingモデルパラメータ推定 / Fit Ising model parameters (GPU)
+        
         _, _, h, W = fit_approx_GPU(task_data_tensor)
         _, num = calc_basin_graph(h, W, task_data)
         task_data = pd.DataFrame(np.concatenate(filter_list, axis=1))
         acc1, acc2 = calc_accuracy(h, W, task_data)
     else:
-        # Isingモデルパラメータ推定 / Fit Ising model parameters
         h, W = fit_approx_new(task_data)
         _, num = calc_basin_graph(h, W, task_data)
-        #print(graph)
-        # plot_local_min(task_data, graph, group, iter)  # 必要に応じて可視化
-
-        # モデル適合度計算 / Calculate model fit accuracy
         acc1, acc2 = calc_accuracy(h, W, task_data)
     acc = (acc1 + acc2) / 2
-        #print(f"elaopt acc: {acc1}, {acc2}")
 
-    # 個体パラメータβの分散計算 / Calculate variance of individual parameter β
     beta_list = []
     for filtered in filter_list:
         beta = fit_approx_personal_new(filtered, h, W)
@@ -81,55 +68,39 @@ def func_ELA(individual, task_data_train, behavioral_df=None, use_gpu=False):
 
     return var, acc, num
 
-def fit_approx_GPU(X_in: pd.DataFrame, max_iter: int = 10**3, alpha: float = 0.9):
-    import torch
-    # DataFrame → Tensor に変換（-1, +1 の二値化）
-    device = "cuda"
-    X = 2 * X_in - 1  # shape (n, k)
-    n, k = X.shape
-
-    # パラメータ初期化
-    h = torch.zeros(n,device=device)             # shape (n,)
-    W = torch.zeros((n, n),device=device)        # shape (n, n)
-
-    # 入力統計量
-    X_mean = X.mean(dim=1)                        # shape (n,)
-    X_corr = (X @ X.T) / k                        # shape (n, n)
-    diag = torch.arange(n, device=device)
-    X_corr[diag, diag] = 0
-
-    for _ in range(max_iter):
-        # 予測
-        Y = torch.tanh(W @ X + h.view(-1, 1))     # shape (n, k)
-
-        # h の更新
-        h += alpha * (X_mean - Y.mean(dim=1))
-
-        # Z（相互相関）の計算
-        Z = (X @ Y.T) / k
-        Z = 0.5 * (Z + Z.T)
-        Z[diag, diag] = 0
-
-        # W の更新
-        W += alpha * (X_corr - Z)
-
-        # 収束判定
-        if torch.allclose(X_mean, Y.mean(dim=1)) and torch.allclose(X_corr, Z):
-            break
-
-    # 必要であれば CPU／NumPy／Pandas に戻す例
-    h_cpu = h.cpu().numpy()
-    W_cpu = W.cpu().numpy()
-    # h_df = pd.Series(h_cpu, index=X_in.index)
-    # W_df = pd.DataFrame(W_cpu, index=X_in.index, columns=X_in.index)
-    # return h_df, W_df
-
-    return h, W,h_cpu,W_cpu
+def load_brain_data(pkl_path, group_split=False):
+    task_data = []
+    id_df = pd.DataFrame()
+    group1_data = []
+    group2_data = []
+    for filename in os.listdir(pkl_path):
+        if filename.endswith(".pkl"):
+            participants_filename = filename.replace("pkl", "tsv")
+            participants_filename = "participants_" + participants_filename
+            file_path = os.path.join(pkl_path, filename)
+            participants_path = os.path.join(pkl_path, participants_filename)
+            group_ids = []
+            try:
+                behavioral_df = pd.read_csv(participants_path, sep="\t", encoding="latin1")
+                group_ids.extend(behavioral_df["dx_group"].tolist())
+            except FileNotFoundError:
+                behavioral_df = None
+                group_ids = []
+            with open(file_path, "rb") as f:
+                data = pickle.load(f)
+                id_df = pd.concat([id_df, pd.Series(group_ids)])
+                task_data.append(data)
+                if group_split and group_ids:
+                    group1_data.extend([d for d, g in zip(data, group_ids) if g == 1])
+                    group2_data.extend([d for d, g in zip(data, group_ids) if g == 2])
+            print(f"Loaded: {filename}")
+    if group_split and group1_data and group2_data:
+        return group1_data, group2_data, id_df.reset_index(drop=True)
+    else:
+        task_data_all = [item for sublist in task_data for item in sublist]
+        return task_data_all, id_df.reset_index(drop=True)
 
 def fit_approx_personal_new(X_in, h_archetype, W_archetype, max_iter=10**3, alpha=0.9):
-    """
-    個体ごとのβパラメータ推定 / Estimate beta parameter for each individual
-    """
     beta = 1.0
     X = 2 * X_in - 1
     n, k = X.shape
@@ -150,40 +121,44 @@ def fit_approx_personal_new(X_in, h_archetype, W_archetype, max_iter=10**3, alph
             break
     return beta
 
-def calc_state_no(X):
-    """
-    2値データを状態番号（10進数）に変換 / Convert binary data to state number (decimal)
-    """
-    return X.astype(str).sum().apply(lambda x: int(x, base=2))
+# ==============================================================================
+# The functions below are derived from the  Energy Landscape Analysis Toolbox/Toolkit (ELAT).
+# Source: https://github.com/okumakito/elapy
+# Original License: Apache License Version 2.0
+#
+# A copy of the Apache License Version 2.0 is included in this project's LICENSE file.
+# Modifications:
+# - Added GPU support using PyTorch (fit_approx_GPU).
+# - numpy-based implementation (fit_approx_new).
+# ==============================================================================
 
-def gen_all_state(X_in):
-    """
-    全状態を生成 / Generate all possible states
-    """
-    n = len(X_in)
-    X = np.array([list(bin(i)[2:].rjust(n, '0')) for i in range(2 ** n)]).astype(int).T
-    return pd.DataFrame(X, index=X_in.index)
 
-def calc_prob(h, W, X):
-    """
-    各状態の確率を計算 / Calculate probability for each state
-    """
-    energy = calc_energy(h, W, X)
-    energy -= energy.min()  # avoid overflow
-    prob = np.exp(-energy)
-    return prob / prob.sum()
 
-def calc_energy(h, W, X_in):
-    """
-    各状態のエネルギーを計算 / Calculate energy for each state
-    """
-    X = 2 * X_in - 1
-    return -0.5 * (X * W.dot(X)).sum() - h.dot(X)
+def fit_approx_GPU(X_in: pd.DataFrame, max_iter: int = 10**3, alpha: float = 0.9):
+    import torch
+    device = "cuda"
+    X = 2 * X_in - 1  
+    n, k = X.shape
+    h = torch.zeros(n,device=device)             
+    W = torch.zeros((n, n),device=device)           
+    X_mean = X.mean(dim=1)                        
+    X_corr = (X @ X.T) / k                        
+    diag = torch.arange(n, device=device)
+    X_corr[diag, diag] = 0
+    for _ in range(max_iter):
+        Y = torch.tanh(W @ X + h.view(-1, 1))     
+        h += alpha * (X_mean - Y.mean(dim=1))
+        Z = (X @ Y.T) / k
+        Z = 0.5 * (Z + Z.T)
+        Z[diag, diag] = 0
+        W += alpha * (X_corr - Z)
+        if torch.allclose(X_mean, Y.mean(dim=1)) and torch.allclose(X_corr, Z):
+            break
+    h_cpu = h.cpu().numpy()
+    W_cpu = W.cpu().numpy()
+    return h, W,h_cpu,W_cpu
 
 def fit_approx_new(X_in: pd.DataFrame, max_iter=10**3, alpha=0.9):
-    """
-    Isingモデルのパラメータ推定 / Estimate Ising model parameters
-    """
     X = 2 * X_in.to_numpy() - 1
     n, k = X.shape
     h = np.zeros(n)
@@ -204,10 +179,27 @@ def fit_approx_new(X_in: pd.DataFrame, max_iter=10**3, alpha=0.9):
     W_df = pd.DataFrame(W, index=X_in.index, columns=X_in.index)
     return h, W
 
+def calc_state_no(X):
+    return X.astype(str).sum().apply(lambda x: int(x, base=2))
+
+def gen_all_state(X_in):
+    n = len(X_in)
+    X = np.array([list(bin(i)[2:].rjust(n, '0')) for i in range(2 ** n)]).astype(int).T
+    return pd.DataFrame(X, index=X_in.index)
+
+def calc_prob(h, W, X):
+    energy = calc_energy(h, W, X)
+    energy -= energy.min()  
+    prob = np.exp(-energy)
+    return prob / prob.sum()
+
+def calc_energy(h, W, X_in):
+    X = 2 * X_in - 1
+    return -0.5 * (X * W.dot(X)).sum() - h.dot(X)
+
+
+
 def calc_accuracy(h, W, X):
-    """
-    モデル適合度を計算 / Calculate model fit accuracy
-    """
     freq = calc_state_no(X).value_counts()
     p_n = freq / freq.sum()
     q = X.mean(axis=1)
@@ -223,10 +215,6 @@ def calc_accuracy(h, W, X):
     return acc1, acc2
 
 def calc_basin_graph(h, W, X):
-    """
-    局所安定状態のグラフを計算 / Calculate local minima graph
-    """
-    #print(X.shape)
     X_all = gen_all_state(X)
     A = calc_adjacent(X)
     energy = calc_energy(h, W, X_all)
@@ -240,13 +228,9 @@ def calc_basin_graph(h, W, X):
     conn = sorted(nx.weakly_connected_components(G), key=len)[::-1]
     for i, node_set in enumerate(conn):
         graph.loc[list(node_set), 'state_no'] = i + 1
-    #print(f"local min number :{i+1}")
     return graph, i + 1
 
 def calc_adjacent(X):
-    """
-    隣接状態を計算 / Calculate adjacent states
-    """
     X_all = gen_all_state(X)
     out_list = [calc_state_no(X_all)]
     for i in X_all.index:
@@ -256,9 +240,6 @@ def calc_adjacent(X):
     return pd.concat(out_list, axis=1)
 
 def plot_local_min(data, graph, group, iter):
-    """
-    局所安定状態のヒートマップを描画 / Plot heatmap of local minima states
-    """
     df = graph[graph.source == graph.target]
     n = len(data)
     X = np.array([list(bin(i)[2:].rjust(n, '0')) for i in df.index]).astype(int).T
@@ -281,9 +262,6 @@ def plot_local_min(data, graph, group, iter):
     fig.show()
     
 def plot_local_min_s1(data, graph):
-    """
-    局所安定状態のインデックスを返す / Return indices of local minima states
-    """
     df = graph[graph.source == graph.target]
     n = len(data)
     X = np.array([list(bin(i)[2:].rjust(n, '0')) for i in df.index]).astype(int).T
@@ -292,42 +270,3 @@ def plot_local_min_s1(data, graph):
     df = df.sort_index(axis=1)
     return df, X_10
 
-def load_brain_data(pkl_path, group_split=False):
-    """
-    脳活動データとグループ情報の読み込み
-    Load brain activity data and group info
-    tsvファイルがない場合はグループ分けせず全データを読み込む
-    If tsv file is missing, load all data without group split
-    """
-    task_data = []
-    id_df = pd.DataFrame()
-    group1_data = []
-    group2_data = []
-    for filename in os.listdir(pkl_path):
-        if filename.endswith(".pkl"):
-            participants_filename = filename.replace("pkl", "tsv")
-            participants_filename = "participants_" + participants_filename
-            file_path = os.path.join(pkl_path, filename)
-            participants_path = os.path.join(pkl_path, participants_filename)
-            group_ids = []
-            try:
-                behavioral_df = pd.read_csv(participants_path, sep="\t", encoding="latin1")
-                group_ids.extend(behavioral_df["dx_group"].tolist())
-            except FileNotFoundError:
-                # tsvファイルがない場合はグループ分けせず全データを使う
-                behavioral_df = None
-                group_ids = []
-            with open(file_path, "rb") as f:
-                data = pickle.load(f)
-                id_df = pd.concat([id_df, pd.Series(group_ids)])
-                task_data.append(data)
-                if group_split and group_ids:
-                    group1_data.extend([d for d, g in zip(data, group_ids) if g == 1])
-                    group2_data.extend([d for d, g in zip(data, group_ids) if g == 2])
-            print(f"Loaded: {filename}")
-    if group_split and group1_data and group2_data:
-        return group1_data, group2_data, id_df.reset_index(drop=True)
-    else:
-        task_data_all = [item for sublist in task_data for item in sublist]
-        return task_data_all, id_df.reset_index(drop=True)
-    
