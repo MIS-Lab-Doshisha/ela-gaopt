@@ -1,3 +1,11 @@
+"""
+----------------------------------------------------
+Tested with Python 3.13.2
+----------------------------------------------------
+Script for analyzing ROI selection in GA optimization
+-----------------------------------------------------
+"""
+
 import pandas as pd
 from collections import Counter
 from scipy.stats import binomtest
@@ -15,18 +23,16 @@ class ROISelectionAnalyzer:
     
     def load_selection_table(self, filepath):
         """
-        ROI選択集計表を読み込む
         Load ROI selection summary table
-        03_selected_roi_count.pyで使用 / Used in 03_selected_roi_count.py
+        Used in 03_selected_roi_count.py
         """
         df = pd.read_csv(filepath, header=0, index_col=0)
         return df
 
     def flatten_and_count(self, df):
         """
-        全選択ROIを1列にまとめ、頻度カウント
         Flatten all selected ROIs into one column and count frequencies
-        03_selected_roi_count.pyで使用 / Used in 03_selected_roi_count.py
+        Used in 03_selected_roi_count.py
         """
         all_selected = df.values.flatten()
         all_selected = [x for x in all_selected if pd.notnull(x) and x != ""]
@@ -37,9 +43,8 @@ class ROISelectionAnalyzer:
 
     def binomial_test_and_fdr(self, data):
         """
-        二項検定とFDR補正を実施し、Cohen's hで効果量も計算
         Perform binomial test and FDR correction, also calculate effect size using Cohen's h
-        03_selected_roi_count.pyで使用 / Used in 03_selected_roi_count.py
+        Used in 03_selected_roi_count.py
         """
         def cohens_h(p1, p2):
             # arcsin sqrt transformation
@@ -60,30 +65,29 @@ class ROISelectionAnalyzer:
         
     def collect_roi_selection_labels(self, atlas_label_path, ga_result_pattern, output_path, n_individuals=100):
             """
-            AtlasのROIラベルとGA個体選択結果から、各個体で選択されたROIラベルの集計表を作成・保存
             Atlas ROI labels and GA individual selection results are used to create and save a summary table of selected ROI labels for each individual.
-            03_selected_roi_count.pyで使用 / Used in 03_selected_roi_count.py
+            Used in 03_selected_roi_count.py
             """
-            # Power atlas (2011) のROI座標情報を取得
+            # --- Get ROI coordinate information from Power atlas (2011) ---
             dataset = datasets.fetch_coords_power_2011()
             df = pd.DataFrame(dataset['rois'])
 
-            # ROIラベル（ネットワーク名）を読み込み
+            # --- Read atlas ROI labels ---
             with open(atlas_label_path) as f:
                 Node = f.readlines()
             Node_df = pd.Series(Node, name="network_label")
-            Node_df = Node_df.str.replace(r'_\D*\n$', '', regex=True)  # ラベル整形
+            Node_df = Node_df.str.replace(r'_\D*\n$', '', regex=True)  
 
             labels_df = Node_df
             all_df = pd.DataFrame()
 
-            # 各GA個体について、選択されたROIラベルを抽出・集計
+            # --- Collect ROI selection labels from GA optimization results ---
             for i in range(n_individuals):
                 individual = pd.read_csv(
                     ga_result_pattern.format(idx=i+4),
                     index_col=0, header=0
                 )
-                individual = individual.iloc[999].values  # 最終世代の個体
+                individual = individual.iloc[999].values  
                 selected_labels = labels_df[[bool(x) for x in individual]]
                 all_df = pd.concat([all_df, selected_labels], axis=1)
 
@@ -92,13 +96,13 @@ class ROISelectionAnalyzer:
     
     def find_all_significant_individuals(self, fdr_csv_path, select_csv_path):
         """
-        有意ROIのみで構成される個体（ROIセット）のインデックスをリストで返す
-        04_selected_roi_search.pyで使用/ Used in 04_selected_roi_search.py
+        Extract indices of individuals (columns) composed only of significant ROIs
+        Used in 04_selected_roi_search.py
         """
         fdr_df = pd.read_csv(fdr_csv_path)
         select_df = pd.read_csv(select_csv_path, index_col=0)
 
-        # 有意ROI名のセットを作成
+        # --- Create a set of significant ROIs from FDR-corrected results ---
         true_df = fdr_df[fdr_df["Significant"] == True]["Region"]
         true_set = set(true_df.str.strip())
         significant_indices = []
@@ -117,13 +121,12 @@ class ROISelectionAnalyzer:
     
     def plot_roi_and_network_counts(self, atlas_label_path, fdr_csv_path, output_prefix):
         """
-        有意ROIリストとPower atlas情報をマージし、ROIごと・ネットワークごとの選択回数を棒グラフで保存
         Merge significant ROI list with Power atlas information and save bar plots of selection counts for each ROI and network
-        Significant列がTrueのROIのみプロット/ Plot only ROIs where Significant column is True
-        05_roi_visualization.pyで使用 / Used in 05_roi_visualization.py
+        Plot only ROIs where Significant column is True
+        Used in 05_roi_visualization.py
 
         """
-        # Power atlas情報
+        # --- Get ROI coordinate information from Power atlas (2011) ---
         dataset = datasets.fetch_coords_power_2011()
         #dataset = datasets.fetch_coords_dosenbach_2010()
         df = pd.DataFrame(dataset['rois'])
@@ -135,17 +138,16 @@ class ROISelectionAnalyzer:
         roi_df = pd.concat([df, Node_df], axis=1)
         roi_df["network"] = roi_df["Label"].str.split("_").str[0]
 
-        # FDR補正済みROIリスト
+        # --- FDR-corrected ROI list ---
         fdr_df = pd.read_csv(fdr_csv_path)
-        # Significant列がTrueのものだけ抽出
+        # Extract only those with Significant column as True
         fdr_df = fdr_df[fdr_df["Significant"] == True]
         grouped_df = pd.merge(fdr_df, roi_df, how='left', left_on='Region', right_on='Label')
-        grouped_df = grouped_df.sort_values('Count', ascending=True)  # ← 追加：Countで降順ソート
+        grouped_df = grouped_df.sort_values('Count', ascending=True)  
         grouped_df.to_csv(f"{output_prefix}_fdr_xyz.csv")
 
         network_counts = grouped_df.groupby('network')['Count'].sum().reset_index()
 
-        # ROIごとの棒グラフ（横向き・Arialフォント）
         matplotlib.rcParams['font.family'] = 'Arial'
 
         plt.figure(figsize=(16, 12))
@@ -165,7 +167,7 @@ class ROISelectionAnalyzer:
     
     def mannwhitneyu_test(self, csv_path, col1="ASD", col2="CTL", alpha=0.05, encoding="latin1"):
         """
-        2群間のマンホイットニーU検定（ウィルコクソン順位和検定）を実行し、結果を返す
+        Perform Mann-Whitney U test between two columns in a CSV file
         """
         data = pd.read_csv(csv_path, encoding=encoding)
         data_column_1 = data[col1]
@@ -173,7 +175,7 @@ class ROISelectionAnalyzer:
 
         if len(data_column_1) != len(data_column_2):
             return {
-                "error": "2つの列のデータ数が一致しません。",
+                "error": "Columns must have the same length for Mann-Whitney U test.",
                 "statistic": None,
                 "p_value": None,
                 "significant": None
