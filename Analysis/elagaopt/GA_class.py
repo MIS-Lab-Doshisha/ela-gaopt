@@ -1,11 +1,11 @@
 """
-Isingモデル評価・局所安定状態解析クラス
---------------------------------------
-このモジュールは、GAで選択されたROI個体に対してIsingモデルのパラメータ推定、適合度評価、局所安定状態（local minima）解析を行う関数群を提供します。
-
-Ising model evaluation and local minima analysis class
+----------------------------------------------------
+Tested with Python 3.13.2
+----------------------------------------------------
+pMEM evaluation and local minima analysis class
 -----------------------------------------------------
 This module provides functions for parameter estimation, model fit evaluation, and local minima analysis of Ising models for ROI individuals selected by GA.
+-----------------------------------------------------
 """
 
 import numpy as np
@@ -17,6 +17,7 @@ import pickle
 import os
 
 sns.set_context('talk', font_scale=0.8)
+
 
 def func_ELA(individual, task_data_train, behavioral_df=None, use_gpu=False):
     """
@@ -34,9 +35,11 @@ def func_ELA(individual, task_data_train, behavioral_df=None, use_gpu=False):
     acc : Fitting accuracy to the Ising model
     num : Number of local minima.
     """
-
+    # --- Create mask for selected ROIs ---
     selection_mask = np.array(individual, dtype=bool)
+    # --- Extract only selected ROIs for each subject ---
     filter_list = [data[selection_mask].astype('int32') for data in task_data_train]
+    # --- Concatenate all subjects' data column-wise ---
     task_data = np.concatenate(filter_list, axis=1)
     task_data = pd.DataFrame(task_data)
     task_data.columns = range(task_data.shape[1])
@@ -69,6 +72,9 @@ def func_ELA(individual, task_data_train, behavioral_df=None, use_gpu=False):
     return var, acc, num
 
 def load_brain_data(pkl_path, group_split=False):
+    """"
+    Load brain activity data from pickle files.
+    """
     task_data = []
     id_df = pd.DataFrame()
     group1_data = []
@@ -101,6 +107,9 @@ def load_brain_data(pkl_path, group_split=False):
         return task_data_all, id_df.reset_index(drop=True)
 
 def fit_approx_personal_new(X_in, h_archetype, W_archetype, max_iter=10**3, alpha=0.9):
+    """
+    Fit personal parameters for each subject based on the archetype parameters.
+    """
     beta = 1.0
     X = 2 * X_in - 1
     n, k = X.shape
