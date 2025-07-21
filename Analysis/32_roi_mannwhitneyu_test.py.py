@@ -1,33 +1,30 @@
 """
-マン・ホイットニーU検定による群間比較・可視化スクリプト
-------------------------------------------------------
-動作確認済み/Tested with Python 3.13.2
-------------------------------------
-ASD群とCTL群の局所安定状態数などの指標について、マン・ホイットニーU検定・効果量r・Rank-Biserial Correlationを計算し、可視化します。
-
+----------------------------------------------------
+Tested with Python 3.13.2
+----------------------------------------------------
 Script for group comparison and visualization using Mann–Whitney U test
-----------------------------------------------------------------------
+----------------------------------------------------
 Performs Mann–Whitney U test, calculates effect size r and rank-biserial correlation for indicators (e.g., number of local minima) between ASD and CTL groups, and visualizes the results.
+----------------------------------------------------
 """
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from roi_selection_analysis import ROISelectionAnalyzer
+import elagaopt as elaopt
 from scipy.stats import mannwhitneyu, norm
 
 def plot_box_with_significance(exp_data, random_data, title="Comparison of Local minimum number"):
     """
-    ボックスプロット＋有意差表示＋棒グラフを描画
     Draw boxplot with significance bar and countplot
     """
+    # --- Draw boxplot with significance bar ---
     fig, ax = plt.subplots(figsize=(5, 8))
     sns.boxplot(data=[exp_data, random_data], ax=ax, palette=["lightblue", "lightgreen"])
     ax.set_xticklabels(["ASD Group", "CTL Group"])
     ax.set_title(title)
 
-    # 有意差を示す線と＊を追加 / Add significance bar and asterisk
     y_max = max(np.max(exp_data), np.max(random_data))
     y_min = min(np.min(exp_data), np.min(random_data))
     h = (y_max - y_min) * 0.05
@@ -39,7 +36,7 @@ def plot_box_with_significance(exp_data, random_data, title="Comparison of Local
     plt.tight_layout()
     plt.show()
 
-    # --- countplot（棒グラフ） / Draw countplot ---
+    # --- Draw countplot ---
     df_combined = pd.DataFrame({
         "Value": np.concatenate([exp_data, random_data]),
         "Group": ["ASD Group"] * len(exp_data) + ["CTL Group"] * len(random_data)
@@ -51,28 +48,28 @@ def plot_box_with_significance(exp_data, random_data, title="Comparison of Local
     plt.show()
 
 def main():
-    # --- パス設定 / Path settings ---
-    csv_path = "ELAGAopt_result//Analysis_result//ASD_CTL_compare//num_ASD_all_1000_ROI12_1.csv"
-    analyzer = ROISelectionAnalyzer(expected_p=12/264)
+    # --- Path settings ---
+    csv_path = "ELAGAopt_result//Analysis_result//ASD_CTL_compare//num_ASD_CTL.csv"
+    analyzer = elaopt.ROISelectionAnalyzer(expected_p=12/264)
     result = analyzer.mannwhitneyu_test(csv_path, col1="ASD", col2="CTL", alpha=0.05, encoding="latin1")
 
-    # --- 検定結果の表示 / Show test results ---
+    # --- Show test results ---
     if "error" in result and result["error"]:
         print(result["error"])
         return
 
-    print("マン・ホイットニーU検定結果 / Mann–Whitney U test result:")
-    print(f"検定統計量 (U値): {result['statistic']}")
-    print(f"P値: {result['p_value']}")
+    print("Mann–Whitney U test result:")
+    print(f"Statistic (U): {result['statistic']}")
+    print(f"P value: {result['p_value']}")
 
     if result["significant"]:
-        print(f"\nP値 ({result['p_value']:.4f}) は有意水準 (0.05) より小さいため、帰無仮説を棄却します。")
-        print("→ 2群間に統計的に有意な差があります。")
+        print(f"\nP value ({result['p_value']:.4f}) is less than the significance level (0.05), so we reject the null hypothesis.")
+        print("→ There is a statistically significant difference between the two groups.")
     else:
-        print(f"\nP値 ({result['p_value']:.4f}) は有意水準 (0.05) 以上であるため、帰無仮説を棄却できません。")
-        print("→ 2群間に統計的に有意な差があるとは言えません。")
+        print(f"\nP value ({result['p_value']:.4f}) is greater than or equal to the significance level (0.05), so we fail to reject the null hypothesis.")
+        print("→ There is no statistically significant difference between the two groups.")
 
-    # --- データの読み込みと可視化 / Load data and visualize ---
+    # --- Load data and visualize ---
     df = pd.read_csv(csv_path, encoding="latin1")
     ASD_data = df["ASD"].values
     CTL_data = df["CTL"].values
@@ -81,23 +78,23 @@ def main():
     print("Std:", ASD_data.std(), CTL_data.std())
     plot_box_with_significance(ASD_data, CTL_data)
 
-    # --- Mann–Whitney U検定・効果量計算 / Mann–Whitney U test & effect size ---
+    # --- Mann–Whitney U test & effect size ---
     u_stat, p_mwu = mannwhitneyu(ASD_data, CTL_data, alternative='two-sided')
 
-    # Z値の計算 / Calculate Z value
+    # --- Calculate Z value ---
     n1 = len(ASD_data)
     n2 = len(CTL_data)
     mean_U = n1 * n2 / 2
     std_U = np.sqrt(n1 * n2 * (n1 + n2 + 1) / 12)
     z = (u_stat - mean_U) / std_U
 
-    # 効果量rの計算 / Calculate effect size r
+    # --- Calculate effect size r ---
     N = n1 + n2
     r = z / np.sqrt(N)
-    print(f"マン・ホイットニーU検定: U値 = {u_stat:.4f}, p値 = {p_mwu:.4f}")
-    print(f"効果量 r = {r:.4f} （r = Z/√N）")
+    print(f"Mann–Whitney U test: U = {u_stat:.4f}, p = {p_mwu:.4f}")
+    print(f"Effect size r = {r:.4f} (r = Z/√N)")
 
-    # Rank-Biserial Correlationの計算 / Calculate rank-biserial correlation
+    # --- Calculate rank-biserial correlation ---
     r_rb = 1 - (2 * u_stat) / (n1 * n2)
     print(f"Rank-Biserial Correlation: {r_rb:.4f}")
 

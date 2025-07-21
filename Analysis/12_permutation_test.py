@@ -1,15 +1,12 @@
 """
-Permutationテストによる目的関数値の有意性検定・可視化スクリプト 
 ----------------------------------------------------
-動作確認済み/Tested with Python 3.13.2
-------------------------------------
-ランダム個体とELA/GAopt個体の目的関数値（例: Isingモデル適合度＋パラメータ分散）の分布を比較し、
-t検定・マンホイットニーU検定・Permutationテスト・Cohen's d計算・可視化を行います。
-
+Tested with Python 3.13.2
+----------------------------------------------------
 Script for significance testing and visualization of objective function values using permutation test
----------------------------------------------------------------------------------------------------
+----------------------------------------------------
 Compares the distribution of objective function values (e.g., Ising model fit + parameter variance) between random and ELA/GAopt individuals,
 performs t-test, Mann-Whitney U test, permutation test, calculates Cohen's d, and visualizes the results.
+----------------------------------------------------
 """
 
 import pandas as pd
@@ -23,16 +20,14 @@ import scipy.stats as stats
 def main(seed):
     random.seed(seed)
     np.random.seed(seed)
-    # --- データ読み込み / Load data ---
+    # --- Load data ---
     # created by 10_permutation_random_data_create.py, 11_random_roi_selection.py
-    # random_dataはランダムに選択されたROI個体の目的関数
     random_data_acc = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//random_ROI_selection//acc_random_train_s1.csv",header=0))
     random_data_beta = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//random_ROI_selection//var_random_train_s1.csv",header=0))
     random_data =  random_data_beta + random_data_acc
 
-    # --- ELA/GAopt個体の目的関数値読み込み / Load ELA/GAopt objective function values ---
+    # --- Load ELA/GAopt objective function values ---
     # created by 06_ELAGAopt_result_check.py
-    # exp_dataはELA/GAoptで選択されたROI個体の目的関数
     exp_data_acc = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//objective_function//acc_opt_train_s1.csv",header=0))
     exp_data_beta = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//objective_function//var_opt_train_s1.csv",header=0))
     exp_data = exp_data_beta + exp_data_acc
@@ -40,13 +35,13 @@ def main(seed):
     print(f"Random data length : {len(random_data)}, mean :{np.mean(random_data)}, std :{np.std(random_data)}")
     print(f"Experience data length : {len(exp_data)},mean :{np.mean(exp_data)}, std :{np.std(exp_data)}")
 
-    # --- 統計検定 / Statistical tests ---
+    # --- Statistical tests ---
     t_stat, p_ttest = stats.ttest_ind(exp_data.flatten(), random_data.flatten(), equal_var=False)
-    print(f"Welchのt検定: t値 = {t_stat:.4f}, p値 = {p_ttest}")
+    print(f"Welch's t-test: t = {t_stat:.4f}, p = {p_ttest}")
     u_stat, p_mwu = stats.mannwhitneyu(exp_data.flatten(), random_data.flatten(), alternative='two-sided')
-    print(f"マン・ホイットニーU検定: U値 = {u_stat:.4f}, p値 = {p_mwu}")
+    print(f"Mann-Whitney U test: U = {u_stat:.4f}, p = {p_mwu}")
 
-    # --- Permutationテスト / Permutation test ---
+    # --- Permutation test ---
     T_obs = np.mean(exp_data) - np.mean(random_data)
     print(np.mean(random_data), np.mean(exp_data), T_obs)
 
@@ -60,10 +55,10 @@ def main(seed):
     print(np.abs(perm_diffs) >= np.abs(T_obs))
 
     p_value = np.mean((perm_diffs) >= (T_obs))
-    print(f"観測された差: {T_obs:.4f}")
-    print(f"p値: {p_value}")
+    print(f"Observed difference: {T_obs:.4f}")
+    print(f"p-value: {p_value}")
 
-    # --- ヒストグラムの可視化 / Histogram visualization ---
+    # --- Histogram visualization ---
     plt.hist(perm_diffs, bins=50, color='#b8b8b8', alpha=0.7)
     plt.axvline(T_obs, color='black', linestyle='--')
     plt.title(f'Permutation Test\np = {p_value}')
@@ -73,7 +68,7 @@ def main(seed):
     plt.tight_layout()
     plt.show()
 
-    # --- ボックスプロット・蜂群図の可視化 / Boxplot & swarmplot visualization ---
+    # --- Boxplot & swarmplot visualization ---
     acc_list = [exp_data_acc.flatten(),random_data_acc.flatten()]
     beta_list = [exp_data_beta.flatten(),random_data_beta.flatten()]
     eva_list = [exp_data.flatten(),random_data.flatten()] 
@@ -115,7 +110,7 @@ def main(seed):
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    # --- 有意差を示す線と＊を追加 / Add significance bar ---
+    # --- Add significance bar ---
     y_max = max(np.max(exp_data), np.max(random_data))
     y_min = min(np.min(exp_data), np.min(random_data))
     h = (y_max - y_min) * 0.05
@@ -127,7 +122,7 @@ def main(seed):
     plt.tight_layout()
     plt.show()
 
-    # --- 効果量（Cohen's d）計算 / Calculate effect size (Cohen's d) ---
+    # --- Calculate effect size (Cohen's d) ---
     mean1 = np.mean(exp_data)
     mean2 = np.mean(random_data)
     std1 = np.std(exp_data, ddof=1)
@@ -139,6 +134,6 @@ def main(seed):
     print(f"Cohen's d: {cohens_d:.4f}")
 
 if __name__ == "__main__":
-    # シード値を指定してmainを実行 / Run main with specified seed
+    # --- Run main with specified seed ---
     seed = 100
     main(seed)
