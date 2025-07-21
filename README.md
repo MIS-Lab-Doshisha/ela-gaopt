@@ -4,9 +4,9 @@ This repository contains the code for our paper: **Energy Landscape Analysis wit
 
 **ELA/GAopt** is a framework for data-driven ROI (Region of interest) optimization in Energy Landscape Analysis(ELA).
 
-A genetic algorithm-based optimization framework for data-driven ROI selection in ELA.This repository contains code for selecting ROIs from brain activity (fMRI) data and analysing their properties.
+This repository contains code for selecting ROIs from brain activity (fMRI) data and analysing their properties.
 
-The original Matlab codes written by Dr. T. Ezaki are available at:[ https://github.com/tkEzaki/energy-landscape-analysis](https://github.com/tkEzaki/energy-landscape-analysis)
+The original Matlab codes written by Dr. T. Ezaki are available at:[https://github.com/tkEzaki/energy-landscape-analysis](https://github.com/tkEzaki/energy-landscape-analysis)
 
 The original Python implementation of the Energy Landscape Analysis Toolbox/Toolkit (ELAT) written by Dr. M. Oku available at [https://github.com/okumakito/elapy](https://github.com/okumakito/elapy)
 
