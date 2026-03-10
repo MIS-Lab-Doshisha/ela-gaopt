@@ -57,7 +57,6 @@ plt.ylabel("Objective value (|β variance| + Accuracy)")
 plt.title("GA Convergence of Objective Function")
 plt.grid(True, linestyle="--", alpha=0.6)
 plt.tight_layout()
-plt.show()
 plt.savefig("ELAGAopt_result/Analysis_result/GA_plot/convergence_plot.png", dpi=300)
 
 # --- best, beta, accの3つのグラフを1つの画像にまとめる（上：best、下：varとaccを横並び） / Combine best, beta, and acc graphs into one image (top: best, bottom: var and acc side by side) ---
