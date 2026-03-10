@@ -1,161 +1,264 @@
-# Usage Guide: `07_selected_roi_stability.py` (English)
+# Usage Guide: `08_selected_roi_stability`
 
-This script evaluates the stability of ROI selections across GA runs and bootstrapped or repeated experiments. It computes how consistently each ROI is selected, produces stability summaries and plots, and writes aggregated results for downstream analysis. The structure below follows the style used by other Analysis READMEs in this repository (inputs → outputs → configuration → workflow → execution → notes).
+This script analyzes the stability of GA-selected ROIs across multiple trials by computing pairwise distance metrics between individuals. It compares stability metrics between GA-optimized ROI selections and random ROI selections using Hamming distance and Jaccard index, with statistical significance testing via Mann-Whitney U test. Results are saved as CSV matrices and visualized as boxplots.
 
----
+- **Location:** Analysis/
+- **Tested with:** Python 3.13.2
 
 ## Overview
+`08_selected_roi_stability.py` evaluates the stability and consistency of GA-selected ROI selections across 100 individuals/trials. The script:
+1. Loads GA-optimized best individuals and random ROI selections from CSV files
+2. Computes pairwise stability metrics between all individuals:
+   - **Hamming distance:** Number of differing ROI selections between two individuals
+   - **Jaccard index:** Proportion of common ROI selections relative to union (intersection / union)
+3. Generates distance matrices for both GA-optimized and random selections
+4. Creates boxplots comparing stability metrics between the two groups
+5. Applies Mann-Whitney U test to assess statistical significance of differences
+6. Saves distance matrices as CSV files and plots as PNG/SVG images
 
-- Entry script: `07_selected_roi_stability.py`
-- Purpose: quantify and visualize the stability (consistency) of selected ROIs across multiple GA runs, seeds, or cross-validation folds. Stability is usually reported as selection frequency per ROI and summarized with ranking, heatmaps, and optional thresholding.
-- Typical use-case: post-hoc analysis of GA outputs to identify ROIs that are repeatedly selected (robust features) vs. ROIs selected only occasionally (unstable features).
+## 1. Inputs
+- **GA result directory** (`ga_result_path` in script): Directory containing best individual CSV files. Expected format: `best_ind_{idx}.csv` where idx ranges from 1 to n_individuals. Files should contain the best individual for each trial with the last row (index 999) being the final generation individual.
+- **Random ROI selection file** (`random_roi_path`): CSV file containing binary vectors of randomly selected ROIs for each individual (e.g., `ELAGAopt_result/Analysis_result/random_ROI_selection/roi_random_s1_600.csv`). Expected format: rows = individuals, columns = ROIs (0s and 1s).
+- **Atlas label file** (`atlas_label_path`): Text file containing ROI labels for reference (e.g., `Data/atlas_data/power264NodeNames.txt`). Used for context but not required for computation.
 
----
+## 2. Outputs
+CSV distance matrices and visualization plots:
 
-## 1. Input Data Requirements
+### Distance Matrices (saved to `ELAGAopt_result/Analysis_result/selected_ROI_stability/`):
+- `stability_metrics_s{scenario_num}_hamming_distances.csv` — Pairwise Hamming distances between GA-optimized individuals (100×100 matrix)
+- `stability_metrics_s{scenario_num}_jaccard_indices.csv` — Pairwise Jaccard indices between GA-optimized individuals (100×100 matrix)
+- `stability_metrics_random_s{scenario_num}_hamming_distances.csv` — Pairwise Hamming distances between random ROI selections (100×100 matrix)
+- `stability_metrics_random_s{scenario_num}_jaccard_indices.csv` — Pairwise Jaccard indices between random ROI selections (100×100 matrix)
 
-The script expects selection summaries saved by earlier steps of the pipeline. Typical inputs include:
+### Visualization Files:
+- `boxplot_Hamming_Distance_s{scenario_num}.png` — Individual boxplot for Hamming distance comparison
+- `boxplot_Jaccard_Index_s{scenario_num}.png` — Individual boxplot for Jaccard index comparison
+- `boxplot_stability_metrics_summary_s{scenario_num}.png` — Combined boxplot showing both metrics side-by-side
+- `.svg` versions of all boxplots for vector graphics editing
 
-A. Selection table(s)
-- Path (default in script): `ELAGAopt_result/GA_result/population/` or `ELAGAopt_result/Analysis_result/selected_ROI_count/`.
-- Format: CSV or pickled DataFrame where each column or row corresponds to one GA run/individual and entries list selected ROI indices or names.
-- Expected structure: each column = one run; cells contain ROI labels (strings) or binary selection vectors (0/1). Missing entries may be empty or NaN.
+## 3. Configuration (script-level variables)
 
-B. (Optional) Run metadata
-- A small CSV listing run identifiers, seeds, and optionally experimental conditions (e.g., dataset name or group).
-- Used to group runs and compute group-level stability.
+Located in the `main()` function:
 
-Assumptions:
-- ROI labels are consistent across runs (same naming and ordering). The script normalizes whitespace and casing before counting.
-- If selection data is a population pickle, the script can extract best individuals (or all individuals) depending on configuration.
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `atlas_label_path` | string | `"Data/atlas_data/power264NodeNames.txt"` | Path to atlas ROI labels file (for reference) |
+| `ga_result_path` | string | `"ELAGAopt_result/GA_result/best_individual/best_ind_{idx}.csv"` | Path template for GA-selected best individual files |
+| `scenario_num` | int | `1` | Scenario identifier appended to output file names |
+| `random_roi_path` | string | `"ELAGAopt_result/Analysis_result/random_ROI_selection/roi_random_s1_600.csv"` | Path to random ROI selection results CSV |
+| `n_individuals` | int | `100` | Number of individuals/trials to analyze |
 
----
+## 4. Behavior / Workflow
 
-## 2. Output Data
+### Main Workflow:
+1. Set up file paths for GA results and random ROI selections
+2. Load random ROI selection data from CSV file
+3. For each individual (1 to n_individuals):
+   - Load best individual CSV file: `best_ind_{idx}.csv`
+   - Extract the individual from the final generation (row 999)
+   - Remove the first column (index column)
+   - Print debug information: selected ROI count and list
+   - Concatenate all individuals into a single DataFrame
+4. Call `caluculate_stability_metrics()` to compute pairwise distances:
+   - For each pair of individuals (i, j):
+     - Calculate Hamming distance: sum of differing ROI selections
+     - Calculate Jaccard index: intersection / union of selected ROIs
+   - Create distance matrices and save as CSV files
+   - Print mean Hamming distance and Jaccard index
+5. Create visualization boxplots:
+   - Extract upper triangle of distance matrices (to avoid double-counting)
+   - Create individual boxplots for Hamming distance and Jaccard index
+   - Create combined summary boxplot with both metrics
+   - Apply Mann-Whitney U test to assess statistical significance
+   - Add significance stars (*, **, ***, ****) to plots
+6. Save all plots as PNG and SVG files
 
-Typical outputs saved by the script:
+### Key Functions:
 
-- `ELAGAopt_result/Analysis_result/selected_ROI_stability/stability_summary_{runset}.csv` — CSV with per-ROI selection frequency (count and proportion), rank, and optional group-level frequencies.
-- `ELAGAopt_result/Analysis_result/selected_ROI_stability/top_ROIs_{runset}.csv` — CSV listing the top-N most stable ROIs.
-- Figures saved under `ELAGAopt_result/Analysis_result/selected_ROI_stability/figs/`, for example:
-  - `roi_selection_frequency_bar_{runset}.png` — bar plot of selection frequency for all ROIs or top-K ROIs.
-  - `roi_selection_heatmap_{runset}.png` — heatmap showing selection across runs (ROIs × runs binary matrix).
-- Optional pickled objects containing intermediate matrices (e.g., binary selection matrix) for reproducibility.
+**`caluculate_stability_metrics(individual_all_df, output_path_prefix, scenario_num=1)`:**
+- Computes pairwise Hamming distances and Jaccard indices
+- Returns DataFrames with distance matrices
+- Saves results to CSV files
 
-All output filenames include an identifying `runset` or timestamp to avoid overwriting previous analyses.
+**`boxplot_comparison(select_df, random_df, prefix, scenario_num=1)`:**
+- Creates individual boxplot comparing GA-selected vs random ROI selections
+- Applies Mann-Whitney U test with FDR correction
+- Computes Cohen's d effect size
+- Saves PNG plot
 
----
+**`boxplot_comparison_summary(select_ham_df, random_ham_df, select_jac_df, random_jac_df, scenario_num=1)`:**
+- Creates side-by-side boxplots for both Hamming distance and Jaccard index
+- Combines violin plots and boxplots with statistical annotations
+- Applies Mann-Whitney U test to both metrics
+- Saves PNG and SVG plots
 
-## 3. Configuration (values used in the script)
+## 5. Usage examples
 
-| Variable | Type | Default (in script) | Description |
-| :--- | :--- | :--- | :--- |
-| `select_table_path` | str | `ELAGAopt_result/Analysis_result/selected_ROI_count/selected_test_data.csv` | Path to aggregated selection table. |
-| `output_dir` | str | `ELAGAopt_result/Analysis_result/selected_ROI_stability/` | Directory for writing summary files and figures. |
-| `normalize_labels` | bool | True | Strip whitespace and normalize case when matching ROI names. |
-| `top_k` | int | 20 | Number of top ROIs to report in separate CSV or plot. |
-| `group_by` | str or None | None | Optional metadata column name used to compute group-specific stability. |
-
-Adjust these variables at the top of the script or via CLI options (if implemented) to fit your data layout.
-
----
-
-## 4. Functionality and algorithm
-
-The script performs the following high-level steps:
-
-1. Load selection tables and optional run metadata.
-2. Convert selection representations to a consistent binary matrix M of shape (n_rois × n_runs), where M[i,j] = 1 when ROI i was selected in run j.
-3. Compute per-ROI statistics:
-   - `count` = sum_j M[i,j]
-   - `freq` = count / n_runs
-   - `rank` = ordering by `count` or `freq` descending
-4. (Optional) Compute group-level frequencies if `group_by` is provided.
-5. Create visualizations:
-   - Bar plot of `freq` for all or top-K ROIs.
-   - Heatmap of M (or subset) to visually inspect patterns across runs.
-6. Save results and figures.
-
-Complexity: time O(n_rois × n_runs) for counting and plotting; memory O(n_rois × n_runs) for the binary matrix. This is typically modest (e.g., 264 × several hundred runs).
-
----
-
-## 5. Statistical considerations
-
-- Stability is measured as simple selection frequency. This is an intuitive and interpretable measure but does not account for chance-level selection. For large hypothesis testing, consider a null model (random selection preserving number of selected ROIs per run) and compute empirical p-values.
-- If runs have different numbers of selected ROIs, normalization by `n_runs` is still valid; however, you may also want to compute weighted frequencies or control for selection-size differences.
-- When grouping runs (e.g., different datasets or seeds), compare group-level frequencies to highlight condition-specific stable ROIs.
-
----
-
-## 6. Execution instructions
-
-Run from the project root or the `Analysis` folder. If `07_selected_roi_stability.py` exposes CLI flags, use them; otherwise modify the configuration constants at the top of the script.
-
-Basic usage (no CLI):
-
+### Basic usage (analyze 100 individuals with scenario 1):
 ```bash
-python Analysis/07_selected_roi_stability.py
+python Analysis/08_selected_roi_stability.py
 ```
 
-If CLI options exist (example):
-
-```bash
-python Analysis/07_selected_roi_stability.py --select-table ELAGAopt_result/Analysis_result/selected_ROI_count/selected_test_data.csv --output-dir ELAGAopt_result/Analysis_result/selected_ROI_stability/ --top-k 30
+### Analyze with different scenario number:
+Edit the `main()` function:
+```python
+scenario_num = 2  # Change from 1 to 2
 ```
 
-Pre-run checklist:
-- Confirm `select_table_path` exists and contains consistent ROI labels or binary vectors.
-- Ensure `output_dir` exists or is creatable by the script.
-
----
-
-## 7. Example output
-
-A sample `stability_summary.csv` row format:
-
+### Analyze different number of individuals:
+Edit the `main()` function:
+```python
+n_individuals = 50  # Analyze 50 individuals instead of 100
 ```
-ROI,count,freq,rank
-ROI_1,98,0.98,1
-ROI_2,87,0.87,2
+
+### Point to different GA results and random ROI data:
+```python
+ga_result_path = "ELAGAopt_result/GA_result/best_individual/best_ind_{idx}.csv"
+random_roi_path = "ELAGAopt_result/Analysis_result/random_ROI_selection/roi_random_s1_700.csv"
+```
+
+### Change atlas labels:
+```python
+atlas_label_path = "Data/atlas_data/dosenbach160NodeNames.txt"
+```
+
+## 6. Output details
+
+### Console output example:
+```
+Processing individual 1/100
+Individual data shape: (264,)
+Number of selected ROIs: 15
+individual data preview: [1 0 1 0 0 1 ...] ...
+Selected ROIs for individual 1: [0 2 5 8 12 15 ...]
+
+...
+
+Stability metrics saved.
+mean Hamming distance: 156.34
+mean Jaccard index: 0.23
+
+Selected ROIs upper triangle data length: 4950
+Random ROIs upper triangle data length: 4950
+...
+Hamming Distance comparison results:
+<StatResult> pvalue=1.2e-45, statistic=123456.0
+
+Jaccard Index comparison results:
+<StatResult> pvalue=3.4e-38, statistic=234567.0
+```
+
+### CSV file structure examples:
+
+**`stability_metrics_s1_hamming_distances.csv`** (100×100 pairwise Hamming distances):
+```
+0.0,12,8,15,...      (row 0, distances to all individuals)
+12,0.0,14,10,...     (row 1)
+8,14,0.0,9,...       (row 2)
 ...
 ```
 
-Console output might include concise summaries such as:
-
+**`stability_metrics_s1_jaccard_indices.csv`** (100×100 pairwise Jaccard indices):
 ```
-Processed 264 ROIs across 100 runs.
-Top 5 ROIs: ROI_1 (0.98), ROI_2 (0.87), ROI_25 (0.73), ROI_10 (0.69), ROI_44 (0.66)
-Saved summary to ELAGAopt_result/Analysis_result/selected_ROI_stability/stability_summary_2026-02-26.csv
+0.0,0.52,0.68,0.45,...
+0.52,0.0,0.41,0.55,...
+0.68,0.41,0.0,0.38,...
+...
 ```
 
----
+### Plot characteristics:
+- **Boxplot colors:** Light blue (#8cc5e3) for random ROIs, darker blue (#1a80bb) for GA-selected ROIs
+- **Violin plots:** Show distribution density with boxplots inside
+- **Statistical annotations:** Stars indicate p-value thresholds:
+  - `****` = p < 0.0001
+  - `***` = p < 0.001
+  - `**` = p < 0.01
+  - `*` = p < 0.05
+  - `ns` = not significant
+- **Significance test:** Mann-Whitney U test with FDR (Benjamini-Hochberg) correction
 
-## 8. Extending the script
+## 7. Notes & recommendations
 
-- Null-model testing: add a `--null-iterations` argument to generate random selection matrices that preserve per-run selection sizes and compute empirical p-values for frequencies.
-- Robustness plots: include cumulative selection frequency plots or rank-frequency (Zipf-like) plots.
-- Interactive visualization: export heatmap data to an interactive HTML (Plotly) for easier exploration.
+- **Pairwise computation:** The script computes all pairwise distances, resulting in an n×n matrix. For 100 individuals, this is 10,000 comparisons. For larger n, computation time increases quadratically.
+- **Upper triangle extraction:** When comparing distributions, the script extracts only the upper triangle (excluding diagonal) to avoid double-counting and diagonal zeros. This gives n*(n-1)/2 = 4,950 unique pairwise combinations for 100 individuals.
+- **Distance matrix properties:** 
+  - Hamming distance is symmetric (distance[i,j] = distance[j,i])
+  - Diagonal is zero (distance from individual to itself is 0)
+  - Jaccard index is symmetric and ranges from 0 (no overlap) to 1 (identical selection)
+- **Statistical testing:** Mann-Whitney U test is non-parametric and suitable for comparing distributions even if not normally distributed. FDR correction prevents false positives when multiple comparisons are made.
+- **Cohen's d interpretation:** Effect sizes are printed for each pairwise comparison (Hamming and Jaccard):
+  - d < 0.2: negligible
+  - 0.2 ≤ d < 0.5: small
+  - 0.5 ≤ d < 0.8: medium
+  - d ≥ 0.8: large
+- **Output prefix:** Use `scenario_num` to organize results from different experimental runs
+- **Memory consideration:** Creating 100×100 matrices for each metric uses minimal memory, but plotting operations are more intensive
 
----
+## 8. Troubleshooting
 
-## 9. Edge cases and assumptions
+### Issue: FileNotFoundError for GA result files
+- **Cause:** `ga_result_path` format is incorrect or GA results do not exist in the expected directory
+- **Solution:** Verify that GA results were generated by `01_main_ELAGAopt.py` and that files follow naming pattern `best_ind_{idx}.csv` where idx starts from 1
 
-- Mixed input formats: the script attempts to detect whether the selection table contains ROI labels or binary selection vectors. If ambiguous, it logs an error and exits.
-- Large numbers of runs: if n_runs is extremely large (thousands), consider sampling runs for visualization while still computing exact frequencies.
-- Label mismatches: ROI naming inconsistencies will reduce apparent stability. The script performs simple normalization (strip, lower) but not complex remapping; provide a mapping file if labels differ across sources.
+### Issue: FileNotFoundError for random ROI file
+- **Cause:** `random_roi_path` is incorrect or `07_random_roi_selection.py` has not been run
+- **Solution:** Confirm that random ROI results exist. If not, run `python Analysis/07_random_roi_selection.py` first to generate the required file
 
----
+### Issue: FileNotFoundError for atlas labels
+- **Cause:** `atlas_label_path` is incorrect or atlas data file does not exist
+- **Solution:** Verify that atlas label file exists in `Data/atlas_data/`. Note: this file is optional and only used for reference, so missing it won't prevent computation
 
-## 10. References and related scripts
+### Issue: "IndexError: index 999 is out of bounds"
+- **Cause:** Best individual CSV files have fewer than 1000 rows, so row 999 does not exist
+- **Solution:** Change the row index to match your data:
+  ```python
+  individual = individual_df.iloc[last_row_index].values  # Use last_row_index instead of 999
+  ```
 
-- `03_selected_roi_count.py` — produces aggregated selection counts used as input for stability analysis.
-- `04_selected_roi_search.py` — searches for individuals composed only of FDR-significant ROIs (useful after identifying stable ROIs).
-- `01_main_ELAGAopt_HCP.py` and `GA_class.py` — the GA pipeline and model-evaluation utilities whose outputs feed this stability check.
+### Issue: Script runs but produces no plots
+- **Cause:** Output directory does not exist or is not writable
+- **Solution:** Create output directory manually:
+  ```bash
+  mkdir -p ELAGAopt_result/Analysis_result/selected_ROI_stability
+  ```
 
----
+### Issue: "ValueError: could not broadcast input array"
+- **Cause:** GA-selected and random ROI DataFrames have different numbers of columns
+- **Solution:** 
+  - Verify that both GA result files and random ROI file use the same number of ROIs (e.g., 264)
+  - Check that individual CSV files have consistent column count across all files
 
-If you want, I can also:
-- add a CLI wrapper (argparse) to `07_selected_roi_stability.py`,
-- implement a small unit test that runs the script on a synthetic selection matrix and checks the `stability_summary` is created, or
-- produce example plots and attach them to the repository as demonstrations.
+### Issue: All significance bars show "ns" (not significant)
+- **Cause:** GA-selected and random ROI selections have very similar stability characteristics
+- **Solution:** 
+  - Check that GA optimization is producing meaningfully different selections
+  - Verify that random ROI selection method is truly random
+  - Examine the actual distance values (mean values) to assess practical difference even if not statistically significant
+
+### Issue: "AttributeError: 'DataFrame' object has no attribute 'where'"
+- **Cause:** Pandas version incompatibility with the `where()` method syntax
+- **Solution:** Update pandas or modify the upper triangle extraction code:
+  ```python
+  import numpy as np
+  mask = np.triu(np.ones_like(select_df, dtype=bool), k=1)
+  select_upper = select_df[mask].dropna()
+  ```
+
+### Issue: Plots look distorted or labels are overlapping
+- **Cause:** Default figure size or font scaling issue
+- **Solution:** Modify figure size and font parameters in the plotting functions:
+  ```python
+  fig, ax = plt.subplots(figsize=(10, 7))  # Increase figure size
+  ax.tick_params(labelsize=14)              # Adjust font size
+  ```
+
+### Issue: Memory error when processing large number of individuals
+- **Cause:** Creating large distance matrices consumes significant memory
+- **Solution:** 
+  - Reduce number of individuals: change `n_individuals = 100` to smaller value
+  - Process individuals in batches instead of all at once
+  - Ensure sufficient RAM available on system
+
+### Issue: Cohen's d values are incorrect or very large
+- **Cause:** Very small pooled standard deviation, especially when distributions have little variance
+- **Solution:** This is expected behavior when comparing very consistent selections. Verify results manually if needed.

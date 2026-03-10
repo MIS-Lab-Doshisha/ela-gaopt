@@ -1,6 +1,7 @@
 """ 
+選択されたROIの安定性分析スクリプト
 ----------------------------------------------------
-Tested with Python 3.13.2
+動作確認済み/Tested with Python 3.13.2
 ----------------------------------------------------
 Script for analyzing stability of selected ROIs across trials
 ----------------------------------------------------
@@ -12,80 +13,81 @@ import pandas as pd
 import numpy as np
 import os
 import random
-import elagaopt as elaopt
+#import elagaopt as elaopt
 from statannotations.Annotator import Annotator
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# --- main関数 / Main function ---
 def main():
-    # --- Path settings ---
+    # --- パス設定/Path settings ---
     # Atlas ROI label file
     # Using existing atlas label file
-    #atlas_label_path = "Data//atlas_data//power264NodeNames.txt"
+    atlas_label_path = "Data//atlas_data//power264NodeNames.txt"
 
-    # --- GA optimization result file pattern ---
+    # --- GA最適化結果ファイルパターン / GA optimization result file pattern ---
     # created by 01_main_ELAGAopt.py
-    ga_result_path = "ELAGAopt_result//GA_result//best_individual//test_data_4//best_ind_1000_all_ROI12_2_{idx}.0.csv"
-    scenario_num =40  # Scenario number used in GA optimization
-    # --- Load random ROI selection data for comparison ---
-    random_roi_path = "ELAGAopt_result//Analysis_result//random_ROI_selection//roi_random_s3.csv"
+    ga_result_path = "ELAGAopt_result//GA_result//best_individual//best_ind_{idx}.csv"
+    scenario_num = 1  # Scenario number used in GA optimization
+
+    # --- ランダムROI選択結果の読み込み / Load random ROI selection results ---
+    random_roi_path = "ELAGAopt_result//Analysis_result//random_ROI_selection//roi_random_s1_600.csv"
     random_roi_df = pd.read_csv(random_roi_path)
     n_individuals = 100  # Number of individuals/trials
     individual_all_df = pd.DataFrame()
-    seed = 42
-    random.seed(seed)
+
+    # --- GA最適化されたROI選択結果の読み込み / Load GA-optimized ROI selection results ---
     for i in range(n_individuals):
         print(f"Processing individual {i+1}/{n_individuals}")
-        individual_path = ga_result_path.format(idx=i+4)
-        individual_df = pd.read_csv(individual_path)
-        individual = individual_df.iloc[999].values
-        individual = np.delete(individual, 0)  # Remove index column if present
-        print(f"Individual data shape: {individual.shape}")
+        individual_path = ga_result_path.format(idx=i+1)                                # パスを生成 / Generate path for the individual
+        individual_df = pd.read_csv(individual_path)                                    # 個体データを読み込む / Load individual data   
+        individual = individual_df.iloc[999].values                                     # 最終世代の個体を抽出 / Extract the individual from the final generation
+        individual = np.delete(individual, 0)                                           # 最初の列（インデックス）を削除 / Remove the first column (index)
+        print(f"Individual data shape: {individual.shape}") 
         print(f"Number of selected ROIs: {np.sum(individual)}")
         print(F"individual data preview: {individual[:10]} ...")
         print(f"Selected ROIs for individual {i+1}: {np.where(individual == 1)[0]}")
 
-        # Store individual data in a DataFrame
-        individual_df = pd.DataFrame([individual])
-        individual_all_df = pd.concat([individual_all_df, individual_df], ignore_index=True)
-    # --- Calculate stability metrics ---
+        individual_df = pd.DataFrame([individual])                                              # 個体データをDataFrame化 / Convert individual data to DataFrame
+        individual_all_df = pd.concat([individual_all_df, individual_df], ignore_index=True)    # GA最適化された個体データを結合 / Concatenate GA-optimized individual data
+
+    # --- 安定性指標の計算と保存 / Calculate and save stability metrics ---
     output_path_prefix = f"ELAGAopt_result//Analysis_result//selected_ROI_stability//stability_metrics_s{scenario_num}"
     hamming_select, jaccard_select = caluculate_stability_metrics(individual_all_df, output_path_prefix, scenario_num=scenario_num)
-
     random_path_prefix = f"ELAGAopt_result//Analysis_result//selected_ROI_stability//stability_metrics_random_s{scenario_num}"
     hamming_random, jaccard_random = caluculate_stability_metrics(random_roi_df, random_path_prefix, scenario_num=scenario_num)
-    # --- Boxplot comparison ---
+
+    # --- 安定性指標のボックスプロット作成 / Create boxplots for stability metrics ---
     boxplot_comparison(hamming_select, hamming_random,"Hamming Distance", scenario_num=scenario_num)
     boxplot_comparison(jaccard_select, jaccard_random,"Jaccard Index", scenario_num=scenario_num)
     boxplot_comparison_summary(hamming_select, hamming_random,jaccard_select, jaccard_random, scenario_num=scenario_num)
 
+# --- 安定性指標の計算関数 / Function to calculate stability metrics ---
 def caluculate_stability_metrics(individual_all_df, output_path_prefix,scenario_num=1):
     """
     Calculate and save stability metrics (Hamming distance and Jaccard index) for selected ROIs across individuals.
     """
-    n_individuals = individual_all_df.shape[0]
-    hamming_distances = np.zeros((n_individuals, n_individuals))
-    jaccard_indices = np.zeros((n_individuals, n_individuals))
+    n_individuals = individual_all_df.shape[0]                      # 個体数を取得 / Get number of individuals
+    hamming_distances = np.zeros((n_individuals, n_individuals))    # Hamming距離の行列を初期化 / Initialize matrix for Hamming distances
+    jaccard_indices = np.zeros((n_individuals, n_individuals))      # Jaccard指数の行列を初期化 / Initialize matrix for Jaccard indices
 
+    # --- 個体間のHamming距離とJaccard指数を計算 / Calculate Hamming distance and Jaccard index between individuals ---
     for i in range(n_individuals):
         for j in range(n_individuals):
             if i != j:
-                # Hamming distance
-                hamming_distances[i, j] = np.sum(individual_all_df.iloc[i] != individual_all_df.iloc[j])
-                # Jaccard index
-                intersection = np.sum((individual_all_df.iloc[i] == 1) & (individual_all_df.iloc[j] == 1))
-                union = np.sum((individual_all_df.iloc[i] == 1) | (individual_all_df.iloc[j] == 1))
-                jaccard_indices[i, j] = intersection / union if union != 0 else 0
+                hamming_distances[i, j] = np.sum(individual_all_df.iloc[i] != individual_all_df.iloc[j])        # Hamming距離の計算 / Calculate Hamming distance
+                intersection = np.sum((individual_all_df.iloc[i] == 1) & (individual_all_df.iloc[j] == 1))      # Jaccard指数の分子（共通の選択されたROIの数） / Numerator for Jaccard index (number of commonly selected ROIs)
+                union = np.sum((individual_all_df.iloc[i] == 1) | (individual_all_df.iloc[j] == 1))             # Jaccard指数の分母（少なくとも一方で選択されたROIの数） / Denominator for Jaccard index (number of ROIs selected in at least one individual)
+                jaccard_indices[i, j] = intersection / union if union != 0 else 0                               # Jaccard指数の計算 / Calculate Jaccard index (handle division by zero) 
                 #print(f"Computed metrics for individuals {i+1} and {j+1}")
                 #print(f"Hamming distance: {hamming_distances[i, j]}, Jaccard index: {jaccard_indices[i, j]}")
                 #print(f"intersection: {intersection}, union: {union}")
                 #print(f"Selected ROIs for individual {i}: {np.where(individual_all_df.iloc[i] == 1)[0]}")
                 #print(f"Selected ROIs for individual {j}: {np.where(individual_all_df.iloc[j] == 1)[0]}")
 
-    # Save results
+    # --- 結果をDataFrame化して保存 / Convert results to DataFrame and save ---
     hamming_df = pd.DataFrame(hamming_distances)
     jaccard_df = pd.DataFrame(jaccard_indices)
-
     hamming_df.to_csv(f"{output_path_prefix}_hamming_distances.csv", index=False)
     jaccard_df.to_csv(f"{output_path_prefix}_jaccard_indices.csv", index=False)
     print("Stability metrics saved.")
@@ -93,20 +95,21 @@ def caluculate_stability_metrics(individual_all_df, output_path_prefix,scenario_
     print(f"mean Jaccard index: {jaccard_df.values.mean()}")
     return hamming_df, jaccard_df
 
+# --- ボックスプロット作成関数 / Function to create boxplots for stability metrics ---
 def boxplot_comparison_summary(select_ham_df, random_ham_df,select_jac_df,random_jac_df, scenario_num=1):
-    # Create summary data for both Hamming and Jaccard metrics
-    select_upper_ham = select_ham_df.where(np.triu(np.ones(select_ham_df.shape), k=1).astype(bool)).stack().reset_index(drop=True)
-    random_upper_ham = random_ham_df.where(np.triu(np.ones(random_ham_df.shape), k=1).astype(bool)).stack().reset_index(drop=True)
-    select_upper_jac = select_jac_df.where(np.triu(np.ones(select_jac_df.shape), k=1).astype(bool)).stack().reset_index(drop=True)
-    random_upper_jac = random_jac_df.where(np.triu(np.ones(random_jac_df.shape), k=1).astype(bool)).stack().reset_index(drop=True)
+    # --- 上三角行列を取得 / Extract upper triangle of the matrices ---
+    select_upper_ham = select_ham_df.where(np.triu(np.ones(select_ham_df.shape), k=1).astype(bool)).stack().reset_index(drop=True) # 上三角行列を抽出して1次元化 / Extract upper triangle and flatten to 1D
+    random_upper_ham = random_ham_df.where(np.triu(np.ones(random_ham_df.shape), k=1).astype(bool)).stack().reset_index(drop=True) # 上三角行列を抽出して1次元化 / Extract upper triangle and flatten to 1D
+    select_upper_jac = select_jac_df.where(np.triu(np.ones(select_jac_df.shape), k=1).astype(bool)).stack().reset_index(drop=True) # 上三角行列を抽出して1次元化 / Extract upper triangle and flatten to 1D
+    random_upper_jac = random_jac_df.where(np.triu(np.ones(random_jac_df.shape), k=1).astype(bool)).stack().reset_index(drop=True) # 上三角行列を抽出して1次元化 / Extract upper triangle and flatten to 1D
     print(f"Selected ROIs Hamming upper triangle data length: {len(select_upper_ham)}")
     print(f"Random ROIs Hamming upper triangle data length: {len(random_upper_ham)}")
     print(f"Selected ROIs Jaccard upper triangle data length: {len(select_upper_jac)}")
     print(f"Random ROIs Jaccard upper triangle data length: {len(random_upper_jac)}")
 
-    # ボックスプロットの作成
-    order = ["Random", "ELA/GAopt"]
-    data_ham = pd.DataFrame({"Metric": "Hamming Distance",
+    # --- ボックスプロットの作成 / Create boxplots ---
+    order = ["Random", "ELA/GAopt"]                                                     # グループの順序を指定 / Specify order of groups                    
+    data_ham = pd.DataFrame({"Metric": "Hamming Distance",                              
             "Group": np.repeat(order, [len(random_upper_ham), len(select_upper_ham)]),
             "Value": pd.concat([random_upper_ham, select_upper_ham], ignore_index=True)
            })
@@ -114,8 +117,9 @@ def boxplot_comparison_summary(select_ham_df, random_ham_df,select_jac_df,random
             "Group": np.repeat(order, [len(random_upper_jac), len(select_upper_jac)]),
             "Value": pd.concat([random_upper_jac, select_upper_jac], ignore_index=True)
            })
-    fig,ax = plt.subplots(1,2, figsize=(12, 6))
-    # Hamming Distance plot
+    fig,ax = plt.subplots(1,2, figsize=(12, 6)) # ボックスプロットの作成 / Create boxplots
+    
+    # --- Hamming距離のプロット / Hamming distance plot ---
     sns.violinplot(
         x='Group',
         y='Value',
@@ -143,31 +147,23 @@ def boxplot_comparison_summary(select_ham_df, random_ham_df,select_jac_df,random
         order=order
     )
     """sns.swarmplot(
-    x='Group',
-    y='Value',
-    data=data_ham,
-    ax=ax[0],
-    palette=['#0072B2', '#003366'],
-    alpha=0.8,
-    size=1,       # 点を小さく
-    order=order
+        x='Group',
+        y='Value',
+        data=data_ham,
+        ax=ax[0],
+        palette=['#0072B2', '#003366'],
+        alpha=0.8,
+        order=order
     )"""
-    """sns.stripplot(
-    x='Group',
-    y='Value',
-    data=data_ham,
-    ax=ax[0],
-    palette=['#0072B2', '#003366'],
-    alpha=0.5,
-    jitter=0.45,   # 左右の広がりを制御
-    order=order
-    )"""
-    ax[0].tick_params(direction='in',length=6)
-    ax[0].tick_params(axis='x', width=0.5,length=3)
-    ax[0].set_ylabel("Hamming Distance", fontsize=15)
-    ax[0].set_xlabel("")
+
+    ax[0].tick_params(direction='in',length=6)          # ティックを内側に向ける / Set ticks to point inward
+    ax[0].tick_params(axis='x', width=0.5,length=3)     # x軸のティックを細く短くする / Make x-axis ticks thinner and shorter
+    ax[0].set_ylabel("Hamming Distance", fontsize=15)   # y軸ラベルを設定 / Set y-axis label
+    ax[0].set_xlabel("")                                # x軸ラベルを空にする / Set x-axis label to empty       
     # ax[0].set_title("Hamming Distance", fontsize=18)
     # Jaccard Index plot
+
+    # --- Jaccard指数のプロット / Jaccard index plot ---
     sns.violinplot(
         x='Group',
         y='Value',
@@ -195,30 +191,22 @@ def boxplot_comparison_summary(select_ham_df, random_ham_df,select_jac_df,random
         order=order
     )
     """sns.swarmplot(
-    x='Group',
-    y='Value',
-    data=data_jac,
-    ax=ax[1],
-    palette=['#0072B2', '#003366'],
-    alpha=0.8,
-    size=1,       # 点を小さく
-    order=order
-    )"""   
-    """sns.stripplot(
-    x='Group',
-    y='Value',
-    data=data_jac,
-    ax=ax[1],
-    palette=['#0072B2', '#003366'],
-    alpha=0.5,
-    jitter=0.45,   # 左右の広がりを制御
-    order=order
+        x='Group',
+        y='Value',
+        data=data_jac,
+        ax=ax[1],
+        palette=['#0072B2', '#003366'],
+        alpha=0.8,
+        order=order
     )"""
-    ax[1].tick_params(direction='in',length=6)
-    ax[1].tick_params(axis='x', width=0.5,length=3)
-    ax[1].set_ylabel("Jaccard Index", fontsize=15)
-    ax[1].set_xlabel("")
-    # ax[1].set_title("Jaccard Index", fontsize=18)
+
+    ax[1].tick_params(direction='in',length=6)          # ティックを内側に向ける / Set ticks to point inward
+    ax[1].tick_params(axis='x', width=0.5,length=3)     # x軸のティックを細く短くする / Make x-axis ticks thinner and shorter
+    ax[1].set_ylabel("Jaccard Index", fontsize=15)      # y軸ラベルを設定 / Set y-axis label
+    ax[1].set_xlabel("")                                # x軸ラベルを空にする / Set x-axis label to empty
+    # ax[1].set_title("Jaccard Index", fontsize=18) 
+
+    # --- 有意差を示す線と＊を追加 / Add significance bars ---
     annotator = Annotator(
         ax[0],
         [("Random", "ELA/GAopt")], 
@@ -227,6 +215,7 @@ def boxplot_comparison_summary(select_ham_df, random_ham_df,select_jac_df,random
         y="Value",
         verbose=False
     )
+    # --- Mann-Whitney U検定を適用して有意差を表示 / Apply Mann-Whitney U test and display significance ---
     annotator.configure(
         test="Mann-Whitney",
         text_format="star",
@@ -234,11 +223,16 @@ def boxplot_comparison_summary(select_ham_df, random_ham_df,select_jac_df,random
         comparisons_correction="fdr_bh",
         pvalue_thresholds=[[1e-4, "****"], [1e-3, "***"], [1e-2, "**"], [0.05, "*"], [1, "ns"]]
     )
-    annotator.apply_test()
-    ax[0], test_results_ham = annotator.annotate()
+
+    annotator.apply_test()                              # テストを適用 / Apply the test
+    ax[0], test_results_ham = annotator.annotate()      # 結果をプロットに反映 / Annotate the plot with results
     print("Hamming Distance comparison results:")
-    for res in test_results_ham:
+    
+    # --- p値の計算と表示 / Print the results of the comparison ---
+    for res in test_results_ham:                    
         print(res.data)
+    
+    # --- Jaccard指数の有意差表示 / Significance display for Jaccard index ---
     annotator_jac = Annotator(
         ax[1],
         [("Random", "ELA/GAopt")],
@@ -247,6 +241,7 @@ def boxplot_comparison_summary(select_ham_df, random_ham_df,select_jac_df,random
         y="Value",
         verbose=False
     )
+    # --- Mann-Whitney U検定を適用して有意差を表示 / Apply Mann-Whitney U test and display significance ---
     annotator_jac.configure(
         test="Mann-Whitney",
         text_format="star",
@@ -254,19 +249,22 @@ def boxplot_comparison_summary(select_ham_df, random_ham_df,select_jac_df,random
         comparisons_correction="fdr_bh",
         pvalue_thresholds=[[1e-4, "****"], [1e-3, "***"], [1e-2, "**"], [0.05, "*"], [1, "ns"]]
     )
-    annotator_jac.apply_test()
-    ax[1], test_results_jac = annotator_jac.annotate()
+
+    annotator_jac.apply_test()                            # テストを適用 / Apply the test    
+    ax[1], test_results_jac = annotator_jac.annotate()    # 結果をプロットに反映 / Annotate the plot with results
     print("Jaccard Index comparison results:")
+    
+    # --- p値の計算と表示 / Print the results of the comparison ---
     for res in test_results_jac:
         print(res.data)
     
+    # --- x軸のラベルを大きくして、ELA/GAoptだけ太字にする / Enlarge x-axis labels and make ELA/GAopt bold ---
     for a in ax:
-        # x軸のラベル（Random, ELA/GAopt）を取得してループ
-        labels = a.get_xticklabels()
+        labels = a.get_xticklabels()            # x軸のティックラベルを取得 / Get x-axis tick labels
         for label in labels:
-            label.set_fontsize(18)  # 全体のフォントサイズを大きくする
-            if label.get_text() == "ELA/GAopt":
-                label.set_weight('bold')  # ELA/GAoptだけ太字にする
+            label.set_fontsize(18)              # 全てのラベルのフォントサイズを大きくする / Enlarge font size for all labels
+            if label.get_text() == "ELA/GAopt": # ELA/GAoptのラベルを太字にする / Make ELA/GAopt label bold
+                label.set_weight('bold')        # 太字に設定 / Set to bold
         
         # y軸のティックラベルも大きくしたい場合は以下を追加
         a.tick_params(axis='y', labelsize=16)
@@ -345,8 +343,8 @@ def boxplot_comparison(select_df, random_df,prefix, scenario_num=1):
     print(f"Cohen's d for {prefix} comparison: {cohens_d}")
     plt.ylabel(f"{prefix}", fontsize=15)
     plt.tight_layout()
-    #plt.savefig(f"ELAGAopt_result//Analysis_result//selected_ROI_stability//boxplot_{prefix.replace(' ','_')}_s{scenario_num}.png", dpi=300)
-    #plt.show()
+    plt.savefig(f"ELAGAopt_result//Analysis_result//selected_ROI_stability//boxplot_{prefix.replace(' ','_')}_s{scenario_num}.png", dpi=300)
+    plt.show()
     
 if __name__ == "__main__":
     main()
