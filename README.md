@@ -143,19 +143,24 @@ All output destinations are specified by `output_path`.
 ### 3.3 Evaluation and visualisation of ROI optimization results
 Once the ROI selection by **ELA/GAopt** has been completed, the selection should be evaluated.Scripts for this evaluation can be found in the `Analysis/` directory.
 
+* `00_brain_data.py`:This script is used to extract fMRI time-series data from preprocessed HCP (Human Connectome Project) datasets and convert them into binarized formats for use in Energy Landscape Analysis (ELA) or Genetic Algorithm (GA) optimizations.
+* `00_brain_data_HCP.py`:This script is used to extract fMRI time-series data from preprocessed HCP (Human Connectome Project) datasets and convert them into binarized formats for use in Energy Landscape Analysis (ELA) or Genetic Algorithm (GA) optimizations.
+* `01_main_ELAGAopt.py`:This script performs Genetic Algorithm (GA) based optimization of ROI selection using DEAP library. It reads binarized brain fMRI data from HCP (Human Connectome Project) datasets, applies an evolutionary algorithm to select the best subset of ROIs (N out of 264), and evaluates each candidate solution using an Ising model with Energy Landscape Analysis (ELA).
 * `02_GA_plot.py`: Plot the generation-by-generation evolution of the objective function values over multiple GA runs.
+* `02_GA_plot_summary.py`: This script visualizes GA optimization histories across multiple runs. It produces plots of the objective function value (|β variance| + Accuracy), Accuracy, and |β variance| across generations, and saves combined summary figures for comparison between multiple GA runs.
 * `03_selected_roi_count.py`: The frequency of ROIs selected by ELA/GAopt is tabulated and significantly selected ROIs are identified using binomial tests and FDR correction.
 * `04_selected_roi_search.py`: Search for the best ROI individuals, consisting only of ROIs that are still considered significant after FDR correction.
-* `05_roi_visualization.py`: The number of times a significantly selected ROI has been selected is visualised in a bar chart.
+* `05_roi_visualization_all.py`
+* `05_roi_visualization_significant.py`:This scripts visualize ROI selection results produced by the GA analysis. This README covers two small scripts present in this repository: `05_roi_visualization_all.py` (plots selection counts for every ROI) and `05_roi_visualization_significant.py` (plots only FDR-significant ROIs and network summaries using `ROISelectionAnalyzer`).
 * `06_ELAGAopt_result_check.py`: Detailed evaluation of pMEM fitting accuracy, beta variance, number of local stable states, etc. for the best ROI individuals selected by ELA/GAopt.
+* `07_random_roi_selection.py` : The local min Hamming distance between the discovery and the test data is also calculated.
+* `08_selected_roi_stability.py` :This script analyzes the stability of GA-selected ROIs across multiple trials by computing pairwise distance metrics between individuals. It compares stability metrics between GA-optimized ROI selections and random ROI selections using Hamming distance and Jaccard index, with statistical significance testing via Mann-Whitney U test. Results are saved as CSV matrices and visualized as boxplots.
+* `09_ROI_plot.py` :  This script creates glass brain plots to visualize the stability of selected ROIs based on their selection frequency across multiple runs. It uses nilearn's plotting functionality to display ROIs as colored markers on a brain template, with the top 3 most frequently selected ROIs highlighted with larger markers and numbered annotations.
 * `roi_selection_analysis.py` : Functions related to ROI selection analysis (ROI tabulation, binomial test, FDR correction, significant individual search, plots).
 
 
 ### 3.4 Comparison with random ROI selection.
-
-* `10_permutation_random_data_create.py`: Calculate pMEM fitting accuracy and beta variance in randomly selected ROI individuals to generate a baseline dataset for permutation testing.
-* `11_random_roi_selection.py`: The local min Hamming distance between the discovery and the test data is also calculated.
-*  `12_permutation_test.py`: Objective function values of ROI individuals selected by **ELA/GAopt** are compared with objective function values of randomly selected ROI individuals and are subjected to Permutation test, t-test, Mann-Whitney U test, Cohen's d calculation and visualisation.
+*  `10_permutation_test.py`: Objective function values of ROI individuals selected by **ELA/GAopt** are compared with objective function values of randomly selected ROI individuals and are subjected to Permutation test, t-test, Mann-Whitney U test, Cohen's d calculation and visualisation.
 
 
 ### 3.5 Analysis of local minimum states

@@ -52,7 +52,7 @@ Beta (per-subject scaling) estimation (used in `fit_approx_personal_new`):
 - The algorithm minimizes difference between empirical energy and model-predicted energy, updating $\beta$ by gradient steps. Conceptually,
 
 $$
-H_{p}(\beta) = -\frac{1}{2} \sum_{i,j} W^*_{ij} \langle s_i s_j \rangle_{\text{model},\beta} - \sum_i h^*_i \langle s_i \rangle_{\text{model},\beta}
+H_{p}(\beta) = -\frac{1}{2} \sum_{i,j} W^*_{ij} \langle s_i s_j \rangle_{\text{model},\beta} - \sum_i h^*i \langle s_i \rangle_{\text{model},\beta}
 $$
 
 and $\beta$ is updated to reduce $|\langle E \rangle_{\text{emp}} - H_{p}(\beta)|$.
@@ -230,12 +230,3 @@ python GA_class.py
 
 ---
 
-## 6. References and further reading
-
-- Moment-matching / pseudo-likelihood / mean-field approximations for Ising models (review articles on statistical inference for binary network models).
-
----
-
-If you want, I can:
-- produce a separate LaTeX/PDF with the derivations, or
-- add inline numeric examples (small n) and automated unit tests demonstrating each function on toy data.
