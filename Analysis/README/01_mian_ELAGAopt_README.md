@@ -1,6 +1,6 @@
 # Usage Guide: `01_main_ELAGAopt.py`
 
-This script performs Genetic Algorithm (GA) based optimization of ROI selection using DEAP library. It reads binarized brain fMRI data from HCP (Human Connectome Project) datasets, applies an evolutionary algorithm to select the best subset of ROIs (15 out of 264), and evaluates each candidate solution using an Ising model with Energy Landscape Analysis (ELA).
+This script performs Genetic Algorithm (GA) based optimization of ROI selection using DEAP library. It reads binarized brain fMRI data from HCP (Human Connectome Project) datasets, applies an evolutionary algorithm to select the best subset of ROIs (N out of 264), and evaluates each candidate solution using an Ising model with Energy Landscape Analysis (ELA).
 
 ## Overview
 The script implements a multi-objective GA optimization pipeline that:
@@ -19,37 +19,36 @@ The script expects preprocessed, binarized fMRI data in pickle format.
 - **File:** Specified by `pkl_path` (e.g., `Data//test_data_4//Run01_500`)
 - **Format:** A Python pickle file containing a list of `numpy.ndarray` objects.
 - **Array Shape:** Each subject's data has shape `(Time points, 264)` where 264 is the number of ROIs from the Power Atlas.
-- **Values:** Binary (`0` or `1`), already preprocessed by `00_brain_data_HCP.py`.
-- **Function:** Data is loaded via `load_brain_data_0()` from `GA_class` module.
+- **Values:** Binary (`0` or `1`), already preprocessed by `00_brain_data_HCP.py` or `00_brain_data.py`.
+- **Function:** Data is loaded via `load_brain_data()` from `GA_class` module.
 
 ### B. GA Class Module
 - **Module:** `GA_class.py`
 - **Key Function:** `func_ELA()` - Evaluates an individual ROI selection using Ising model and returns fitness value.
-- **Dependency:** Must be in the same directory as this script.
 
 ---
 
 ## 2. Output Data
 
 ### A. Best Individual per Run
-- **Path:** `ELAGAopt_result//GA_result//best_individual//best_ind_500_{seed_id}.csv`
+- **Path:** `ELAGAopt_result//GA_result//best_individual//best_ind_{seed_id}.csv`
 - **Format:** CSV file
 - **Content:** The best ROI selection candidate found after all generations.
 - **Shape:** One row per generation, representing the evolution of the best individual.
 
 ### B. Objective Function History
-- **Path:** `ELAGAopt_result//GA_result//objective_function//best_fitness_500_{seed_id}.csv`
+- **Path:** `ELAGAopt_result//GA_result//objective_function//best_fitness_{seed_id}.csv`
 - **Format:** CSV file
 - **Content:** Best fitness value for each generation.
 
 ### C. Fitness Distribution per Generation
-- **Path:** `ELAGAopt_result//GA_result//fitness//fitness_500_{seed_id}.pkl`
+- **Path:** `ELAGAopt_result//GA_result//fitness//fitness_{seed_id}.pkl`
 - **Format:** Pickle file
 - **Content:** A list of fitness lists, where each inner list contains all fitness values in that generation.
 - **Structure:** `fit_list[generation_i] = [fitness_1, fitness_2, ... fitness_100]` (for POPULATION_SIZE=100)
 
 ### D. Population History
-- **Path:** `ELAGAopt_result//GA_result//population//population_500_{seed_id}.pkl`
+- **Path:** `ELAGAopt_result//GA_result//population//population_{seed_id}.pkl`
 - **Format:** Pickle file
 - **Content:** Complete population (all individuals) saved as a DataFrame for each generation.
 - **Structure:** `pop_list[generation_i]` = DataFrame of 100 individuals (for POPULATION_SIZE=100)
@@ -67,7 +66,7 @@ The script expects preprocessed, binarized fMRI data in pickle format.
 | `MUTATION_PROB` | float | `1.0` | Probability of mutation operation. |
 | `MAX_GENERATIONS` | int | `1000` | Maximum number of generations before stopping. |
 | `FITNESS_THRESHOLD` | int | `10` | Fitness threshold for early stopping condition. |
-| `pkl_path` | str | `"Data//test_data_4//Run01_500"` | Path to the binarized brain data pickle file. |
+| `pkl_path` | str | `"Data//test_data_2//binary_data"` | Path to the binarized brain data pickle file. |
 | `output_path` | str | `"ELAGAopt_result//GA_result"` | Root directory for saving output results. |
 
 ---
@@ -126,7 +125,7 @@ The primary GA optimization loop.
 ---
 
 ## 5. Execution Workflow
-1. **Data Loading:** Loads binarized brain data from pickle file via `load_brain_data_0()`.
+1. **Data Loading:** Loads binarized brain data from pickle file via `load_brain_data()`.
 2. **DEAP Setup:** Initializes toolbox with genetic operators and fitness function.
 3. **Population Initialization:** Creates initial population of `POPULATION_SIZE` random individuals.
 4. **Initial Evaluation:** Evaluates all individuals using `func_ELA()` with GPU acceleration.
@@ -154,14 +153,14 @@ The primary GA optimization loop.
 
 ### Single Run
 ```python
-main(seed=11000)
+main(seed=0)
 ```
 
 ### Multiple Runs (with different seeds)
 The main block already provides a loop with incrementing seeds. Modify as needed:
 ```python
 if __name__ == "__main__":
-    seed = 11000
+    seed = 0
     for i in range(100):
         seed += 1000
         print("start:", seed)

@@ -15,8 +15,7 @@ The script expects preprocessed BOLD NIfTI files. It follows the standard fMRIPr
 - **File Pattern:** `sub-{subject}/func/sub-{subject}_task-REST_acq-{session}_space-MNI152NLin2009cAsym_res-2_desc-preproc_bold.nii.gz`
 
 ### B. Subject List
-- **File:** `Data/group_2_subjects.xlsx`
-- **Format:** An Excel file containing a `participants` column with subject IDs (e.g., 100206).
+- **Format:** An list containing a `participants` column with subject IDs (e.g., 100206).
 
 ### C. Brain Atlas
 - **Atlas:** Power Atlas (2011)
@@ -76,7 +75,7 @@ Converts continuous signals into binary states (0/1).
 ### `main()`
 The entry point of the script.
 - **Logic:**
-    1. Loads subject IDs from the Excel file.
+    1. Loads subject IDs from the list or csv file .
     2. Iterates through subjects.
     3. Calls `time_series` to extract data.
     4. Calls `binarize` to convert data.
@@ -86,7 +85,7 @@ The entry point of the script.
 
 ## 5. Execution Workflow
 1. **Coordinate Setup:** Fetches Power 2011 coordinates.
-2. **Subject Loading:** Reads subject list from Excel.
+2. **Subject Loading:** Reads subject list from list or csv.
 3. **Signal Extraction (Per Subject):**
    - Loads BOLD image and corresponding confounds.
    - Applies `NiftiSpheresMasker` for signal cleaning and extraction.
