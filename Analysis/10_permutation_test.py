@@ -1,12 +1,15 @@
 """
+Permutationテストによる目的関数値の有意性検定・可視化スクリプト 
 ----------------------------------------------------
-Tested with Python 3.13.2
-----------------------------------------------------
+動作確認済み/Tested with Python 3.13.2
+------------------------------------
+ランダム個体とELA/GAopt個体の目的関数値（例: Isingモデル適合度＋パラメータ分散）の分布を比較し、
+t検定・マンホイットニーU検定・Permutationテスト・Cohen's d計算・可視化を行います。
+
 Script for significance testing and visualization of objective function values using permutation test
-----------------------------------------------------
+---------------------------------------------------------------------------------------------------
 Compares the distribution of objective function values (e.g., Ising model fit + parameter variance) between random and ELA/GAopt individuals,
 performs t-test, Mann-Whitney U test, permutation test, calculates Cohen's d, and visualizes the results.
-----------------------------------------------------
 """
 
 import pandas as pd
@@ -16,49 +19,60 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import scipy.stats as stats
 
-
+# --- main関数 / Main function ---
 def main(seed):
-    random.seed(seed)
-    np.random.seed(seed)
-    # --- Load data ---
+    random.seed(seed)                   # シード値を設定 / Set seed value for reproducibility
+    np.random.seed(seed)                # NumPyのシード値も設定 / Set seed value for NumPy  
+    # --- データ読み込み / Load data ---
     # created by 10_permutation_random_data_create.py, 11_random_roi_selection.py
+    # random_dataはランダムに選択されたROI個体の目的関数
     random_data_acc = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//random_ROI_selection//acc_random_train_s1.csv",header=0))
     random_data_beta = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//random_ROI_selection//var_random_train_s1.csv",header=0))
+    #random_data = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//objective_function//hamming_norm_random_s1_re_200.csv",header=0))
+    #random_data = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//objective_function//intersection_random_s1_re_200.csv",header=0))
+    #random_data = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//objective_function//jaccard_random_s1_re_600.csv",header=0))
+    #random_data = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//random_ROI_selection//num_random_train_s1_re.csv",header=0))
     random_data =  random_data_beta + random_data_acc
 
-    # --- Load ELA/GAopt objective function values ---
+    # --- ELA/GAopt個体の目的関数値読み込み / Load ELA/GAopt objective function values ---
     # created by 06_ELAGAopt_result_check.py
+    # exp_dataはELA/GAoptで選択されたROI個体の目的関数
     exp_data_acc = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//objective_function//acc_opt_train_s1.csv",header=0))
     exp_data_beta = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//objective_function//var_opt_train_s1.csv",header=0))
+    #exp_data = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//objective_function//hamming_norm_opt_s1_re.csv",header=0))
+    #exp_data = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//objective_function//intersection_opt_s1_re_200.csv",header=0))
+    #exp_data = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//objective_function//jaccard_opt_s1_re.csv",header=0))
+    #exp_data = np.array(pd.read_csv("ELAGAopt_result//Analysis_result//objective_function//num_opt_train_s1.csv",header=0))
     exp_data = exp_data_beta + exp_data_acc
 
     print(f"Random data length : {len(random_data)}, mean :{np.mean(random_data)}, std :{np.std(random_data)}")
     print(f"Experience data length : {len(exp_data)},mean :{np.mean(exp_data)}, std :{np.std(exp_data)}")
 
-    # --- Statistical tests ---
+    # --- 統計検定 / Statistical tests ---
     t_stat, p_ttest = stats.ttest_ind(exp_data.flatten(), random_data.flatten(), equal_var=False)
-    print(f"Welch's t-test: t = {t_stat:.4f}, p = {p_ttest}")
+    print(f"Welchのt検定: t値 = {t_stat:.4f}, p値 = {p_ttest}")
     u_stat, p_mwu = stats.mannwhitneyu(exp_data.flatten(), random_data.flatten(), alternative='two-sided')
-    print(f"Mann-Whitney U test: U = {u_stat:.4f}, p = {p_mwu}")
+    print(f"マン・ホイットニーU検定: U値 = {u_stat:.4f}, p値 = {p_mwu}")
 
-    # --- Permutation test ---
-    T_obs = np.mean(exp_data) - np.mean(random_data)
+    # --- Permutationテスト / Permutation test ---
+    T_obs =  np.mean(exp_data) - np.mean(random_data)
     print(np.mean(random_data), np.mean(exp_data), T_obs)
 
-    all_scores = np.concatenate([random_data, exp_data])  
-    n_permutations = 10000
-    perm_diffs = np.zeros(n_permutations)
+    all_scores = np.concatenate([random_data, exp_data])    # 全データを結合 / Combine all data for permutation test
+    n_permutations = 10000                                  # Permutationの繰り返し回数 / Number of permutations    
+    perm_diffs = np.zeros(n_permutations)                   # Permutationでの平均差を格納する配列 / Array to store mean differences from permutations
 
+    # --- Permutationテストの実行 / Perform permutation test ---
     for i in range(n_permutations):
         np.random.shuffle(all_scores)
         perm_diffs[i] = np.mean(all_scores[:len(exp_data)]) - np.mean(all_scores[len(exp_data):])
     print(np.abs(perm_diffs) >= np.abs(T_obs))
 
     p_value = np.mean((perm_diffs) >= (T_obs))
-    print(f"Observed difference: {T_obs:.4f}")
-    print(f"p-value: {p_value}")
+    print(f"観測された差: {T_obs:.4f}")
+    print(f"p値: {p_value}")
 
-    # --- Histogram visualization ---
+    # --- ヒストグラムの可視化 / Histogram visualization ---
     plt.hist(perm_diffs, bins=50, color='#b8b8b8', alpha=0.7)
     plt.axvline(T_obs, color='black', linestyle='--')
     plt.title(f'Permutation Test\np = {p_value}')
@@ -67,13 +81,14 @@ def main(seed):
     plt.tick_params(axis='both', direction='in')
     plt.tight_layout()
     plt.show()
+    plt.savefig("ELAGAopt_result/Analysis_result/objective_function/permutation_test_histogram_ham.png", dpi=300)
 
-    # --- Boxplot & swarmplot visualization ---
+    # --- ボックスプロット・蜂群図の可視化 / Boxplot & swarmplot visualization ---
     acc_list = [exp_data_acc.flatten(),random_data_acc.flatten()]
     beta_list = [exp_data_beta.flatten(),random_data_beta.flatten()]
     eva_list = [exp_data.flatten(),random_data.flatten()] 
 
-    fig, ax = plt.subplots(figsize=(5, 8))
+    fig, ax = plt.subplots(figsize=(6, 6.5))
     plot_data = pd.DataFrame({
         'Value': np.concatenate([random_data.flatten(), exp_data.flatten()]),
         'Group': (["Random ROI"] * len(random_data.flatten())) + \
@@ -110,7 +125,7 @@ def main(seed):
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
 
-    # --- Add significance bar ---
+    # --- 有意差を示す線と＊を追加 / Add significance bar ---
     y_max = max(np.max(exp_data), np.max(random_data))
     y_min = min(np.min(exp_data), np.min(random_data))
     h = (y_max - y_min) * 0.05
@@ -121,8 +136,9 @@ def main(seed):
 
     plt.tight_layout()
     plt.show()
+    plt.savefig("ELAGAopt_result/Analysis_result/objective_function_boxplot_ham.png", dpi=300)
 
-    # --- Calculate effect size (Cohen's d) ---
+    # --- 効果量（Cohen's d）計算 / Calculate effect size (Cohen's d) ---
     mean1 = np.mean(exp_data)
     mean2 = np.mean(random_data)
     std1 = np.std(exp_data, ddof=1)
@@ -132,8 +148,11 @@ def main(seed):
     pooled_std = np.sqrt(((n1-1)*std1**2 + (n2-1)*std2**2) / (n1+n2-2))
     cohens_d = (mean1 - mean2) / pooled_std
     print(f"Cohen's d: {cohens_d:.4f}")
+    return p_value
 
 if __name__ == "__main__":
-    # --- Run main with specified seed ---
+    # シード値を指定してmainを実行 / Run main with specified seed
     seed = 100
-    main(seed)
+    p_value =1
+    p_value = main(seed)
+    print(f"Seed: {seed}, p-value: {p_value}")
