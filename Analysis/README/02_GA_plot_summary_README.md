@@ -127,5 +127,3 @@ import matplotlib.pyplot as plt
 - Generated figures are suitable for reports and presentations. For further numerical analysis, export `best_all` / `acc_all` / `var_all` to CSV by adding `to_csv()` calls.
 
 ---
-
-If you want, I can modify the script to accept command-line arguments (paths, `trial_list`, output dir), add automatic directory creation, and include missing-file checks.
