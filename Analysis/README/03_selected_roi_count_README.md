@@ -88,9 +88,9 @@ If you run on a headless server, ensure Matplotlib backend is configured (script
 ## 8. Notes and best practices
 
 - Ensure `n_individuals` matches the number of GA result files you intend to process.
-- Confirm the final-generation row index (999) matches how your GA outputs store the final individual; change the index if your GA saves the final individual at a different row.
+- Confirm the final-generation row index  matches how your GA outputs store the final individual; change the index if your GA saves the final individual at a different row.
 - The binomial test assumes independent GA runs; take care when interpreting results if runs are correlated.
-- Adjust `expected_p` if you use a different selection budget (not 15 ROIs) or a different ROI total.
+- Adjust `expected_p` if you use a different selection budget or a different ROI total.
 
 ---
 
